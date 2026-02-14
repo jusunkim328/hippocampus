@@ -4,6 +4,7 @@
   "description": "조직의 과거 경험과 지식을 검색합니다. 쿼리와 유사한 에피소드 및 의미 기억을 hybrid search(BM25+ELSER)로 찾습니다. 결과의 relevance score를 확인하여 경험 등급을 판단합니다.",
   "tags": ["hippocampus", "memory", "recall"],
   "configuration": {
-    "pattern": "episodic-memories,semantic-memories"
+    "pattern": "*-memories",
+    "custom_instructions": "이 도구는 DevOps 조직의 경험 기억을 검색합니다. episodic-memories는 대화/인시던트의 원문 기록이고, semantic-memories는 구조화된 SPO(주어-술어-목적어) 지식입니다. 두 인덱스를 모두 검색하여 관련 경험을 종합적으로 찾으세요. content 필드가 semantic_text(ELSER) 타입이므로 자연어 쿼리를 사용하세요."
   }
 }

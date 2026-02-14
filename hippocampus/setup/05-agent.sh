@@ -34,7 +34,7 @@ http_code=$(curl -s -o /tmp/agent_response.json -w "%{http_code}" \
 
 if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
   echo "OK ($http_code)"
-elif [ "$http_code" -eq 409 ]; then
+elif [ "$http_code" -eq 400 ] || [ "$http_code" -eq 409 ]; then
   echo "ALREADY EXISTS ($http_code) — skipped"
 else
   echo "FAILED ($http_code)"
