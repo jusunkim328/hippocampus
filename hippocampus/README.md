@@ -110,23 +110,36 @@ The Trust Gate assigns a grade to every response based on organizational experie
 
 | Tool | Type | Function |
 |------|------|----------|
-| `hippocampus-recall` | Index Search | Hybrid search (BM25 + ELSER) across episodic & semantic memories |
-| `hippocampus-contradict` | ES\|QL | Detect conflicting values for the same entity+attribute |
+| `hippocampus-recall` | ES\|QL | Semantic search (ELSER v2) across episodic & semantic memories, top 5 results |
+| `hippocampus-contradict` | ES\|QL | Detect conflicting values for the same entity+attribute (Knowledge Drift) |
 | `hippocampus-blindspot-density` | ES\|QL | Scan all domains for knowledge density (VOID/SPARSE/DENSE) |
 | `hippocampus-blindspot-targeted` | ES\|QL | Assess knowledge density for a specific domain |
-| `hippocampus-remember` | Workflow | Store new experience as episodic + semantic memory |
+| `hippocampus-remember` | MCP | Store new experience via external MCP server → 3 ES indices |
 
-### Workflows (3)
+### MCP Server (`mcp-server/`)
 
-| Workflow | Trigger | Description |
-|----------|---------|-------------|
-| `remember-memory` | Manual | Store new experience in episodic + semantic memories |
-| `reflect-consolidate` | Scheduled (6h) | Consolidate episodic memories into semantic knowledge |
-| `blindspot-report` | Scheduled (24h) | Generate daily knowledge blindspot report |
+The `hippocampus-remember` tool uses an external MCP server instead of Elastic Workflows (see [Why MCP?](#why-mcp-instead-of-elastic-workflows) below).
+
+| Component | Detail |
+|-----------|--------|
+| Stack | FastMCP, Streamable HTTP, Python 3.12, httpx |
+| Tool | `remember_memory(raw_text, entity, attribute, value, confidence, category)` |
+| Writes to | `episodic-memories`, `semantic-memories`, `knowledge-domains` |
+| Deployment | Docker → HTTPS endpoint required |
+
+### Workflows (Not Operational)
+
+Elastic Workflows YAML definitions exist in `workflows/` but are **not operational** due to an execution engine bug in ES 9.x Technical Preview. See [Why MCP?](#why-mcp-instead-of-elastic-workflows) for details.
+
+| Workflow | Trigger | Status |
+|----------|---------|--------|
+| `remember-memory` | Manual | **Replaced by MCP server** |
+| `reflect-consolidate` | Scheduled (6h) | Not operational |
+| `blindspot-report` | Scheduled (24h) | Not operational |
 
 ### Agent (1)
 
-**hippocampus-agent** — An AI agent with the Trust Gate system prompt that automatically verifies every response against organizational experience before answering.
+**hippocampus-agent** — A DevOps incident copilot with the Trust Gate system prompt. Automatically verifies every response against organizational experience before answering. Uses RULE-based instructions with MUST/NEVER keywords and STEP numbering to enforce tool call order.
 
 ---
 
@@ -136,7 +149,7 @@ The Trust Gate assigns a grade to every response based on organizational experie
 
 - Elastic Cloud Hosted (ES 9.x) with ELSER v2 (`.elser-2-elastic`) deployed
 - Agent Builder enabled
-- Copy `.env.example` to `.env` and fill in `ES_URL`, `ES_API_KEY`, `KIBANA_URL`
+- Copy `.env.example` to `.env` and fill in `ES_URL`, `ES_API_KEY`, `KIBANA_URL`, `MCP_SERVER_URL`
 
 > **Note**: `KIBANA_URL` has a **different subdomain** from `ES_URL` — it cannot be derived from ES URL. Find it via Kibana UI or cluster SAML config.
 
@@ -145,20 +158,27 @@ The Trust Gate assigns a grade to every response based on organizational experie
 ```bash
 # Copy and configure environment
 cp .env.example .env
-# Edit .env: ES_URL, ES_API_KEY, KIBANA_URL
+# Edit .env: ES_URL, ES_API_KEY, KIBANA_URL, MCP_SERVER_URL
 
-# Deploy in order (each script depends on the previous)
+# 1. Deploy MCP server (backend for hippocampus-remember tool)
+docker build -t hippocampus-mcp mcp-server/
+# Deploy to a platform with HTTPS support, set the URL in .env as MCP_SERVER_URL
+
+# 2. Deploy in order (each script depends on the previous)
 bash setup/01-indices.sh         # 5 ES indices (ES API)
 bash setup/02-ilm-policies.sh    # 2 ILM policies (ES API)
-bash setup/03-tools.sh           # 5 Agent Builder tools (Kibana API)
-bash setup/04-workflows.sh       # 3 Elastic Workflows (Kibana API)
+bash setup/03-tools.sh           # 4 ES|QL Agent Builder tools (Kibana API)
+bash setup/04-mcp-remember.sh    # MCP connector + remember tool (Kibana API)
 bash setup/05-agent.sh           # 1 agent (Kibana API)
 bash setup/06-seed-data.sh       # Seed data via _bulk (ES API)
 
-# Dashboard: Kibana → Management → Saved Objects → Import → dashboard/hippocampus-dashboard.ndjson
+# 3. Dashboard import (Kibana 9.x native format)
+curl -X POST "${KIBANA_URL}/api/saved_objects/_import?overwrite=true" \
+  -H "Authorization: ApiKey ${ES_API_KEY}" -H "kbn-xsrf: true" \
+  -F file=@dashboard/hippocampus-dashboard-9x.ndjson
 ```
 
-> Scripts 01-02, 06 target `ES_URL`. Scripts 03-05 target `KIBANA_URL`. Both use `ES_API_KEY` for auth.
+> Scripts 01-02, 06 target `ES_URL`. Scripts 03-05 target `KIBANA_URL`. Both use `ES_API_KEY` for auth. All seed data is **synthetic** — no real or confidential data is used.
 
 ---
 
@@ -221,11 +241,34 @@ See [`demo/demo-script.md`](demo/demo-script.md) for the full demo script.
 
 | Technology | Usage |
 |-----------|-------|
-| **Elasticsearch 9.x** | Primary data store, hybrid search, ILM lifecycle |
-| **ELSER v2** | Semantic search for memory recall |
-| **ES\|QL** | Aggregation queries for grading and density |
-| **Agent Builder** | Tool registration, workflow orchestration, agent management |
-| **Kibana 9.x** | Dashboard visualization, monitoring |
+| **Elasticsearch 9.x** | Primary data store, semantic search (ELSER), ILM lifecycle |
+| **ELSER v2** | Semantic search via `semantic_text` field type |
+| **ES\|QL** | Parameterized queries for grading, density, and contradiction detection |
+| **Agent Builder** | Tool registration, agent management, Kibana API |
+| **MCP (Model Context Protocol)** | External memory writer via FastMCP server (Python 3.12) |
+| **Kibana 9.x** | Dashboard visualization (6 Lens panels), monitoring |
+
+---
+
+## Why MCP Instead of Elastic Workflows?
+
+Elastic Workflows are in **Technical Preview** on ES 9.x and have an execution engine bug:
+
+1. **Registration succeeds** — `POST /api/workflows` returns 200 OK with a workflow ID
+2. **Execution immediately fails** — Whether triggered by an agent tool or manually, execution fails instantly
+3. **All 3 workflows affected** — `remember-memory`, `reflect-consolidate`, `blindspot-report` all exhibit the same behavior
+4. **Opaque errors** — The workflow execution API does not return specific error messages, making debugging impossible
+
+This is an Elastic-side execution engine issue, not a code problem. YAML syntax, step types, and parameter formats were all verified — registration succeeds, so it's not a schema issue either.
+
+**Solution**: The critical `hippocampus-remember` function was migrated from `workflow` type to `mcp` type:
+
+```
+[Before] Agent → workflow tool → Elastic Workflow engine → ES indices  (❌ fails)
+[After]  Agent → mcp tool → .mcp connector → MCP server → ES REST API → ES indices  (✅ works)
+```
+
+The workflow YAML files are preserved in `workflows/` for potential reuse when the execution engine bug is fixed.
 
 ---
 
@@ -237,6 +280,7 @@ See [`demo/demo-script.md`](demo/demo-script.md) for the full demo script.
 - **Feedback loops** — Track whether Trust Gate corrections were helpful
 - **Cross-domain contradiction detection** — Detect conflicts across related domains
 - **Memory decay** — Automatically reduce confidence of aging memories
+- **Migrate remaining workflows** — Convert `reflect-consolidate` and `blindspot-report` to MCP tools or cron jobs
 
 ---
 
