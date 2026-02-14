@@ -10,9 +10,20 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from typing import Union
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+
+CONFIDENCE_MAP = {"high": 0.9, "medium": 0.7, "low": 0.5}
+
+
+def _parse_confidence(raw: str) -> float:
+    """'high'/'medium'/'low' 또는 숫자 문자열을 float로 변환."""
+    try:
+        return float(raw)
+    except ValueError:
+        return CONFIDENCE_MAP.get(raw.strip().lower(), 0.7)
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("hippocampus-mcp")
@@ -76,7 +87,7 @@ async def remember_memory(
             "raw_text": raw_text,
             "content": raw_text,
             "timestamp": now,
-            "importance": float(confidence),
+            "importance": _parse_confidence(confidence),
             "category": category,
             "source_type": "conversation",
             "reflected": False,
@@ -93,7 +104,7 @@ async def remember_memory(
             "entity": entity,
             "attribute": attribute,
             "value": value,
-            "confidence": float(confidence),
+            "confidence": _parse_confidence(confidence),
             "category": category,
             "first_observed": now,
             "last_updated": now,
