@@ -4,6 +4,6 @@
   "description": "새로운 경험을 조직 지식으로 저장합니다. 대화에서 핵심 사실을 SPO 트리플로 구조화하고 episodic-memories와 semantic-memories에 기록합니다. 저장 전 Contradict 도구로 기존 지식과의 모순 여부를 자동 검증합니다.",
   "tags": ["hippocampus", "memory", "remember"],
   "configuration": {
-    "workflow_id": "workflow-be175564-a44b-42a6-9f9e-6ce5979a6fe2"
+    "workflow_id": "workflow-11e84b0b-9869-4b5a-9800-2865d3a5d59a"
   }
 }

@@ -23,9 +23,6 @@ inputs:
   - name: category
     type: string
     description: "카테고리 (예: database, kubernetes)"
-  - name: conversation_id
-    type: string
-    description: "대화 ID"
 steps:
   - name: store_episodic
     type: elasticsearch.index
@@ -34,7 +31,6 @@ steps:
       document:
         raw_text: "{{ inputs.raw_text }}"
         content: "{{ inputs.raw_text }}"
-        conversation_id: "{{ inputs.conversation_id }}"
         timestamp: "{{ now }}"
         importance: "{{ inputs.confidence }}"
         category: "{{ inputs.category }}"
@@ -52,8 +48,6 @@ steps:
         value: "{{ inputs.value }}"
         confidence: "{{ inputs.confidence }}"
         category: "{{ inputs.category }}"
-        source_conversation_ids:
-          - "{{ inputs.conversation_id }}"
         first_observed: "{{ now }}"
         last_updated: "{{ now }}"
         update_count: 1

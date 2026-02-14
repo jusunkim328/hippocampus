@@ -1,10 +1,15 @@
 {
   "id": "hippocampus-recall",
-  "type": "index_search",
-  "description": "조직의 과거 경험과 지식을 검색합니다. 쿼리와 유사한 에피소드 및 의미 기억을 hybrid search(BM25+ELSER)로 찾습니다. 결과의 relevance score를 확인하여 경험 등급을 판단합니다.",
+  "type": "esql",
+  "description": "조직의 과거 경험과 지식을 시맨틱 검색합니다. episodic-memories(인시던트 원문)와 semantic-memories(SPO 지식)를 동시에 검색하여 상위 5건을 반환합니다. query에 핵심 엔티티(서비스명, 기술명)를 반드시 포함하고 관련 기술 용어를 2-3개 추가하세요. 일반 용어만으로 검색하지 마세요.",
   "tags": ["hippocampus", "memory", "recall"],
   "configuration": {
-    "pattern": "*-memories",
-    "custom_instructions": "이 도구는 DevOps 조직의 경험 기억을 검색합니다. episodic-memories는 대화/인시던트의 원문 기록이고, semantic-memories는 구조화된 SPO(주어-술어-목적어) 지식입니다. 두 인덱스를 모두 검색하여 관련 경험을 종합적으로 찾으세요. content 필드가 semantic_text(ELSER) 타입이므로 자연어 쿼리를 사용하세요."
+    "query": "FROM episodic-memories, semantic-memories METADATA _score, _index | WHERE MATCH(content, ?query) | SORT _score DESC | LIMIT 5 | EVAL memory_date = COALESCE(timestamp, last_updated) | KEEP content, category, memory_date, _score, _index",
+    "params": {
+      "query": {
+        "type": "text",
+        "description": "검색할 자연어 쿼리. 핵심 엔티티를 앞부분에 포함하고 관련 기술 용어를 2-3개 추가. 15단어 이내. 예: 'Redis cache-server 캐시 지연 latency eviction'"
+      }
+    }
   }
 }
