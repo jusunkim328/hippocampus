@@ -194,7 +194,19 @@ README.md는 2026-02-14 기준으로 동기화 완료. 주요 반영 항목:
 - Technology Stack: MCP 서버 스택 추가
 - Seed data: synthetic 데이터임을 명시
 
-## E2E Testing (Playwright MCP)
+## E2E Testing
+
+### API 자동화 테스트 (권장 — 빠름, 2~5초)
+
+Converse API로 Trust Gate 4가지 시나리오를 자동 검증:
+
+```bash
+export $(cat .env | xargs)
+bash test/e2e-test.sh     # 4 시나리오: Grade A+CONFLICT, Grade D+Blindspot, Remember, Grade 상승
+bash setup/07-verify.sh   # A2A 메타데이터 + Converse API + 에이전트 등록 확인
+```
+
+### UI 검증 (선택 — 느림, 25~45초/쿼리)
 
 Agent Builder UI 테스트는 **반드시 Playwright MCP**를 사용한다 (Chrome DevTools MCP 금지 — 브라우저 이중 실행 방지).
 

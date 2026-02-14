@@ -182,6 +182,63 @@ curl -X POST "${KIBANA_URL}/api/saved_objects/_import?overwrite=true" \
 
 ---
 
+## API Integration
+
+Hippocampus exposes three API surfaces for programmatic access:
+
+### Converse API (Recommended)
+
+Synchronous single-call interface. Best for automated testing and CI/CD integration.
+
+```bash
+curl -s -X POST "${KIBANA_URL}/api/agent_builder/converse" \
+  -H "Authorization: ApiKey ${ES_API_KEY}" \
+  -H "kbn-xsrf: true" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "hippocampus", "input": "How to fix DB connection timeouts?"}'
+```
+
+Response contains `.content` with the Trust Gate graded answer.
+
+### A2A Protocol (Agent-to-Agent)
+
+Enables external agents to invoke Hippocampus Trust Gate as a service. Automatically exposed when the agent is registered — no additional configuration required.
+
+```bash
+# Discover agent metadata
+curl -s "${KIBANA_URL}/api/agent_builder/a2a/hippocampus.json" \
+  -H "Authorization: ApiKey ${ES_API_KEY}"
+
+# Invoke via A2A
+curl -s -X POST "${KIBANA_URL}/api/agent_builder/a2a/hippocampus" \
+  -H "Authorization: ApiKey ${ES_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"message": {"role": "user", "parts": [{"kind": "text", "text": "Redis cache latency issue"}]}}'
+```
+
+### MCP Server
+
+Backend for the `hippocampus-remember` tool. Stores new experiences via MCP protocol.
+
+```bash
+# Direct MCP call (for debugging)
+curl -s -X POST "${MCP_SERVER_URL}/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"method": "tools/call", "params": {"name": "remember_memory", "arguments": {...}}}'
+```
+
+### Automated E2E Testing
+
+Run the full Trust Gate test suite via Converse API (~2-5 seconds total, vs 25-45 seconds per query via UI):
+
+```bash
+export $(cat .env | xargs)
+bash test/e2e-test.sh     # 4 scenarios: Grade A+CONFLICT, Grade D+Blindspot, Remember, Grade升
+bash setup/07-verify.sh   # A2A metadata + Converse API + Agent registration check
+```
+
+---
+
 ## Demo Scenarios
 
 The demo is structured as a 3-minute presentation in 4 acts:

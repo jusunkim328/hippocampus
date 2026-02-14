@@ -1,7 +1,4 @@
 {
-  "settings": {
-    "index.mode": "lookup"
-  },
   "mappings": {
     "properties": {
       "domain":          { "type": "keyword" },

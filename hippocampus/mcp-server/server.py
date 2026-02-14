@@ -115,9 +115,9 @@ async def remember_memory(
         logger.error("semantic-memories write failed: %s", e)
         results["semantic"] = {"status": "error", "message": str(e)}
 
-    # 3) knowledge-domains — 도메인 밀도 업데이트
+    # 3) knowledge-domains-staging — 도메인 밀도 업데이트 (staging → lookup 동기화)
     try:
-        r = await _index_document("knowledge-domains", {
+        r = await _index_document("knowledge-domains-staging", {
             "domain": category,
             "last_updated": now,
         })

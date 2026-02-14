@@ -49,11 +49,12 @@ create_index "semantic-memories"    "${INDICES_DIR}/semantic-memories.json"    |
 create_index "memory-associations"  "${INDICES_DIR}/memory-associations.json"  || ((ERRORS++))
 create_index "memory-access-log"    "${INDICES_DIR}/memory-access-log.json"    || ((ERRORS++))
 create_index "knowledge-domains"    "${INDICES_DIR}/knowledge-domains.json"    || ((ERRORS++))
+create_index "knowledge-domains-staging" "${INDICES_DIR}/knowledge-domains-staging.json" || ((ERRORS++))
 
 echo ""
 if [ "$ERRORS" -gt 0 ]; then
   echo "Completed with ${ERRORS} error(s)."
   exit 1
 else
-  echo "All 5 indices created successfully."
+  echo "All 6 indices created successfully."
 fi
