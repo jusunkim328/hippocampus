@@ -1,7 +1,7 @@
 {
   "id": "hippocampus-contradict",
   "type": "esql",
-  "description": "특정 엔티티의 속성에 대해 서로 다른 값이 기록되어 있는지 확인합니다. 모순(Knowledge Drift)을 감지하고 시간순으로 정렬하여 최신 정보를 판별합니다.",
+  "description": "Trust Gate STEP 3 도구. Experience Grade가 A일 때 반드시 호출하세요. recall 결과에서 식별된 핵심 entity와 attribute를 입력하면, 해당 속성의 값이 시간에 따라 변경(Knowledge Drift)되었는지 확인합니다. CONFLICT 감지 시 답변에 '⚡ CONFLICT' 라벨을 표시하고 최신 값을 우선합니다.",
   "tags": ["hippocampus", "contradict", "trust-gate"],
   "configuration": {
     "query": "FROM semantic-memories | WHERE entity == ?entity AND attribute == ?attribute | STATS value_count = COUNT_DISTINCT(value.keyword), values = VALUES(value.keyword), confidences = VALUES(confidence), dates = VALUES(last_updated), sources = VALUES(source_conversation_ids) | WHERE value_count > 1",

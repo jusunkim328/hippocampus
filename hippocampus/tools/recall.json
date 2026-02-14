@@ -1,10 +1,10 @@
 {
   "id": "hippocampus-recall",
   "type": "esql",
-  "description": "조직의 과거 경험과 지식을 시맨틱 검색합니다. episodic-memories(인시던트 원문)와 semantic-memories(SPO 지식)를 동시에 검색하여 상위 5건을 반환합니다. query에 핵심 엔티티(서비스명, 기술명)를 반드시 포함하고 관련 기술 용어를 2-3개 추가하세요. 일반 용어만으로 검색하지 마세요.",
+  "description": "Trust Gate STEP 1의 필수 도구. 사용자 질문에 답변하기 전 반드시 이 도구를 hippocampus-blindspot-targeted와 동시에 호출하세요. 조직의 과거 경험(episodic-memories)과 구조화된 지식(semantic-memories)을 시맨틱 검색하여 상위 5건을 반환합니다. 반환 결과의 건수와 날짜로 Experience Grade(A/B/C/D)를 판정합니다. query에 핵심 엔티티를 포함하고 기술 용어 2-3개를 추가하세요.",
   "tags": ["hippocampus", "memory", "recall"],
   "configuration": {
-    "query": "FROM episodic-memories, semantic-memories METADATA _score, _index | WHERE MATCH(content, ?query) | SORT _score DESC | LIMIT 5 | EVAL memory_date = COALESCE(timestamp, last_updated) | KEEP content, category, memory_date, _score, _index",
+    "query": "FROM episodic-memories, semantic-memories METADATA _score, _index | WHERE MATCH(content, ?query) | SORT _score DESC | LIMIT 5 | EVAL memory_date = COALESCE(timestamp, last_updated) | KEEP content, category, memory_date, _score, _index, entity, attribute, value",
     "params": {
       "query": {
         "type": "text",
