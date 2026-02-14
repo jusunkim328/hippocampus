@@ -47,12 +47,14 @@ register_tool "${TOOLS_DIR}/recall.json"             || ((ERRORS++))
 register_tool "${TOOLS_DIR}/contradict.json"          || ((ERRORS++))
 register_tool "${TOOLS_DIR}/blindspot-density.json"   || ((ERRORS++))
 register_tool "${TOOLS_DIR}/blindspot-targeted.json"  || ((ERRORS++))
-register_tool "${TOOLS_DIR}/remember.json"            || ((ERRORS++))
+# remember 도구는 04-mcp-remember.sh에서 MCP 커넥터와 함께 등록
+# (Elastic Workflows 실행 엔진이 Technical Preview 버그로 동작하지 않아 MCP로 전환)
 
 echo ""
 if [ "$ERRORS" -gt 0 ]; then
   echo "Completed with ${ERRORS} error(s)."
   exit 1
 else
-  echo "All 5 tools registered successfully."
+  echo "All 4 ESQL tools registered successfully."
+  echo "Note: hippocampus-remember is registered separately via 04-mcp-remember.sh"
 fi

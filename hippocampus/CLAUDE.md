@@ -19,11 +19,13 @@ Hippocampus는 Elasticsearch Agent Builder 기반의 **AI Agent Guardrails** 시
 # Deploy in order (each script depends on the previous)
 bash setup/01-indices.sh         # 5 ES indices (ES API)
 bash setup/02-ilm-policies.sh    # 2 ILM policies (ES API)
-bash setup/03-tools.sh           # 5 Agent Builder tools (Kibana API)
-bash setup/04-workflows.sh       # 3 Elastic Workflows (Kibana API)
+bash setup/03-tools.sh           # 4 ESQL Agent Builder tools (Kibana API)
+bash setup/04-mcp-remember.sh    # MCP connector + remember tool (Kibana API)
+bash setup/04-workflows.sh       # 2 scheduled Elastic Workflows (Kibana API) — optional, Technical Preview
 bash setup/05-agent.sh           # 1 agent (Kibana API)
 bash setup/06-seed-data.sh       # Seed data via _bulk (ES API)
 # Dashboard: Kibana → Management → Saved Objects → Import → dashboard/hippocampus-dashboard.ndjson
+# MCP server: Deploy mcp-server/ (Docker) and set MCP_SERVER_URL in .env before 04-mcp-remember.sh
 ```
 
 Scripts 01-02, 06 target `ES_URL`. Scripts 03-05 target `KIBANA_URL`. Both use `ES_API_KEY` for auth. Kibana API requires `kbn-xsrf: true` header.
@@ -61,10 +63,19 @@ Kibana URL has a **different subdomain** from ES URL (found via SAML config in c
 
 - `index_search`: `configuration.pattern` (index pattern string)
 - `esql`: `configuration.query` + `configuration.params` (object, not array; empty `{}` if no params)
-- `workflow`: `configuration.workflow_id` (auto-generated UUID from workflow registration)
+- `workflow`: `configuration.workflow_id` — **⚠️ Technical Preview: 실행 엔진 버그로 동작하지 않음 (ES 9.3.0)**
+- `mcp`: `configuration.connector_id` + `configuration.tool_name` — `.mcp` 커넥터를 통해 외부 MCP 서버 호출
+
+### MCP Server (remember 도구 대체 구현)
+
+Elastic Workflows 실행 엔진 버그로 `hippocampus-remember`를 MCP 서버로 전환:
+- `mcp-server/server.py`: FastMCP 기반, Streamable HTTP transport
+- ES REST API로 3개 인덱스(episodic/semantic/domain)에 직접 쓰기
+- `.mcp` Kibana 커넥터 → Agent Builder `mcp` 타입 도구로 연결
 
 ### Workflow YAML Format (Elastic Workflows, Technical Preview)
 
+**주의: 등록은 되지만 실행이 즉시 실패함. 스케줄 워크플로우(reflect, blindspot)도 동일.**
 Steps use `type:` (not `action:`) with `with:` block for parameters:
 ```yaml
 triggers:
