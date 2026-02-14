@@ -1,0 +1,17 @@
+{
+  "settings": {
+    "index.lifecycle.name": "hippocampus-accesslog"
+  },
+  "mappings": {
+    "properties": {
+      "timestamp":           { "type": "date" },
+      "memory_id":           { "type": "keyword" },
+      "action":              { "type": "keyword" },
+      "query":               { "type": "text" },
+      "conversation_id":     { "type": "keyword" },
+      "relevance_score":     { "type": "float" },
+      "experience_grade":    { "type": "keyword" },
+      "blindspot_triggered": { "type": "boolean" }
+    }
+  }
+}

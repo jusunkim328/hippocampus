@@ -1,0 +1,19 @@
+{
+  "id": "hippocampus-contradict",
+  "type": "esql",
+  "description": "특정 엔티티의 속성에 대해 서로 다른 값이 기록되어 있는지 확인합니다. 모순(Knowledge Drift)을 감지하고 시간순으로 정렬하여 최신 정보를 판별합니다.",
+  "tags": ["hippocampus", "contradict", "trust-gate"],
+  "configuration": {
+    "query": "FROM semantic-memories | WHERE entity == ?entity AND attribute == ?attribute | STATS value_count = COUNT_DISTINCT(value.keyword), values = VALUES(value.keyword), confidences = VALUES(confidence), dates = VALUES(last_updated), sources = VALUES(source_conversation_ids) | WHERE value_count > 1",
+    "params": {
+      "entity": {
+        "type": "keyword",
+        "description": "검색할 엔티티 이름 (예: payment-service)"
+      },
+      "attribute": {
+        "type": "keyword",
+        "description": "검색할 속성 이름 (예: db-connection-pool-size)"
+      }
+    }
+  }
+}

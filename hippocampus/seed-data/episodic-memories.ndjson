@@ -1,0 +1,100 @@
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"payment-service에서 DB 커넥션 풀 고갈 현상 발생. HikariCP 로그에서 'Connection is not available' 에러 다수 확인. 현재 풀 사이즈 20에서 50으로 증설 진행.","content":"payment-service DB 커넥션 풀 고갈로 장애 발생. 풀 사이즈 20→50 증설로 임시 해결.","conversation_id":"conv-db-001","timestamp":"2025-11-10T09:30:00Z","importance":0.9,"category":"database","source_type":"conversation","reflected":false,"access_count":3}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"payment-service 커넥션 풀 모니터링 결과, 피크 시간대(14-16시) 커넥션 사용률 95% 도달. 50개로 증설 후 안정화되었으나 지속 모니터링 필요.","content":"payment-service 커넥션 풀 50개 증설 후 피크타임 사용률 95%. 추가 증설 검토 필요.","conversation_id":"conv-db-002","timestamp":"2025-11-12T15:20:00Z","importance":0.8,"category":"database","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"팀 회의에서 payment-service 커넥션 풀 논의. DBA 팀 의견: 50이 현재 워크로드에 최적. 무작정 늘리면 DB 서버 부하 증가 우려.","content":"DBA 팀 분석 결과 payment-service 커넥션 풀 50이 최적값. 과도한 증설 시 DB 서버 부하 리스크.","conversation_id":"conv-db-003","timestamp":"2025-11-15T10:00:00Z","importance":0.7,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"postgres-main 슬로우 쿼리 분석 진행. payment_transactions 테이블 full scan 발생하는 쿼리 5개 식별. created_at, user_id 복합 인덱스 추가 계획.","content":"postgres-main 슬로우 쿼리 분석 완료. payment_transactions 테이블 인덱스 부재로 full scan 발생. 복합 인덱스 추가 예정.","conversation_id":"conv-db-004","timestamp":"2025-11-20T11:00:00Z","importance":0.8,"category":"database","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"MySQL replica에서 replication lag 30초 이상 발생. binlog 포맷 ROW에서 대량 UPDATE 쿼리가 원인. batch 크기를 1000에서 200으로 줄여 해결.","content":"MySQL replication lag 30초 발생. 대량 UPDATE의 binlog ROW 포맷이 원인. batch 크기 축소로 해결.","conversation_id":"conv-db-005","timestamp":"2025-11-25T08:45:00Z","importance":0.85,"category":"database","source_type":"conversation","reflected":false,"access_count":3}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"새벽 3시 payment-db 장애 발생. Primary 서버 디스크 full로 WAL 쓰기 실패. 긴급 failover 실행하여 standby로 전환. RTO 2시간 소요.","content":"payment-db 디스크 full 장애. WAL 쓰기 실패로 긴급 failover 실행. standby 전환 완료, RTO 2시간.","conversation_id":"conv-db-006","timestamp":"2025-12-01T03:15:00Z","importance":1.0,"category":"database","source_type":"conversation","reflected":false,"access_count":5}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"payment-service에서 간헐적 connection timeout 발생. 네트워크 팀 확인 결과 DB 서버와의 TCP keepalive 설정 불일치. DB timeout 5초를 10초로 조정하여 해결.","content":"payment-service DB connection timeout 간헐적 발생. TCP keepalive 설정 불일치가 원인. timeout 5초→10초 조정으로 해결.","conversation_id":"conv-db-007","timestamp":"2025-12-05T14:30:00Z","importance":0.75,"category":"database","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"order-service 쿼리 성능 개선 작업. user_orders 테이블에 (user_id, status, created_at) 복합 인덱스 추가 후 평균 응답시간 800ms에서 150ms로 80% 개선.","content":"order-service 쿼리 최적화. user_orders 복합 인덱스 추가로 응답시간 80% 개선 (800ms→150ms).","conversation_id":"conv-db-008","timestamp":"2025-12-10T16:00:00Z","importance":0.85,"category":"database","source_type":"conversation","reflected":false,"access_count":4}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"payment-db 백업 정책 재검토. 현재 일간 full backup + WAL 아카이빙. RPO 1시간 충족. 백업 시간 02:00 UTC로 고정하여 피크 타임 영향 최소화.","content":"payment-db 백업 정책: 일간 full backup + WAL 아카이빙, 02:00 UTC 실행. RPO 1시간 달성.","conversation_id":"conv-db-009","timestamp":"2025-12-15T10:00:00Z","importance":0.7,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"user-db Flyway 마이그레이션 중 실패 발생. V23__add_email_index.sql에서 이미 존재하는 인덱스 생성 시도. IF NOT EXISTS 추가하여 재실행 성공.","content":"user-db Flyway 마이그레이션 실패. 중복 인덱스 생성 시도가 원인. IF NOT EXISTS 조건 추가로 해결.","conversation_id":"conv-db-010","timestamp":"2025-12-20T09:15:00Z","importance":0.65,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"payment-db에서 deadlock 빈번 발생. 트랜잭션 분석 결과 order_items와 payments 테이블 접근 순서가 서비스마다 다름. 전 서비스 트랜잭션 순서 통일로 해결.","content":"payment-db deadlock 다발. 서비스 간 테이블 접근 순서 불일치가 원인. 트랜잭션 순서 통일로 해결.","conversation_id":"conv-db-011","timestamp":"2025-12-25T11:30:00Z","importance":0.9,"category":"database","source_type":"conversation","reflected":false,"access_count":3}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"postgres-main 메모리 사용률 90% 초과 알림. shared_buffers 2GB에서 4GB로 증설 후 캐시 히트율 85%에서 95%로 개선. work_mem도 조정.","content":"postgres-main 메모리 부족. shared_buffers 2GB→4GB 증설로 캐시 히트율 95% 달성.","conversation_id":"conv-db-012","timestamp":"2026-01-05T13:00:00Z","importance":0.8,"category":"database","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"postgres-main VACUUM 미실행으로 테이블 bloat 발생. autovacuum 튜닝 후에도 대용량 테이블에서 문제 지속. 수동 VACUUM FULL 실행하고 주간 스케줄 설정.","content":"postgres-main 테이블 bloat 문제. autovacuum 부족으로 수동 VACUUM FULL 실행. 매주 일요일 자동 실행 스케줄 설정.","conversation_id":"conv-db-013","timestamp":"2026-01-10T08:00:00Z","importance":0.75,"category":"database","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"analytics-db 쿼리 성능 저하. 3년치 데이터 단일 테이블에 적재. 월별 파티셔닝 적용 후 쿼리 성능 5배 개선. 오래된 파티션 아카이빙 정책도 수립.","content":"analytics-db 파티셔닝 적용. 월별 파티셔닝으로 쿼리 성능 5배 개선. 아카이빙 정책 수립 완료.","conversation_id":"conv-db-014","timestamp":"2026-01-15T15:00:00Z","importance":0.8,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"payment-service HikariCP 메트릭을 Prometheus로 연동 완료. 커넥션 풀 사용률, 대기 시간, 타임아웃 횟수 대시보드 구성. 조기 경고 임계값 설정.","content":"payment-service HikariCP 메트릭 Prometheus 연동. 커넥션 풀 모니터링 대시보드 구성 완료.","conversation_id":"conv-db-015","timestamp":"2026-01-20T10:30:00Z","importance":0.7,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"postgres-main WAL 레벨을 minimal에서 replica로 변경. 스트리밍 레플리케이션 활성화를 위한 사전 작업. pg_basebackup으로 standby 초기화 완료.","content":"postgres-main WAL 레벨 replica로 설정. 스트리밍 레플리케이션 준비 완료.","conversation_id":"conv-db-016","timestamp":"2026-01-25T09:00:00Z","importance":0.7,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"order-db 슬로우 쿼리 알림 설정. pg_stat_statements 활성화하고 500ms 이상 쿼리 자동 로깅. 주간 리포트 생성 스크립트 배포.","content":"order-db 슬로우 쿼리 모니터링 설정. 500ms 이상 쿼리 자동 로깅 및 주간 리포트 구성.","conversation_id":"conv-db-017","timestamp":"2026-01-30T14:00:00Z","importance":0.65,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"payment-service 또 커넥션 풀 이슈 재발. 블랙프라이데이 트래픽 3배 증가로 50개로는 부족. 100으로 증설하고 DB 서버 max_connections도 200에서 400으로 상향. 이번에는 확실히 해결됨.","content":"payment-service 커넥션 풀 이슈 재발 (블랙프라이데이). 50→100 증설 및 DB max_connections 400 상향으로 해결.","conversation_id":"conv-db-018","timestamp":"2026-02-12T14:00:00Z","importance":0.95,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"MySQL replica 복구 작업. 스토리지 장애로 replica 데이터 손상. CHANGE MASTER TO로 재구성하고 binlog position 동기화 완료. lag 모니터링 강화.","content":"MySQL replica 스토리지 장애. CHANGE MASTER TO로 재구성 및 binlog 동기화 완료.","conversation_id":"conv-db-019","timestamp":"2026-02-05T07:30:00Z","importance":0.85,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"payment-db 복구 훈련 실시. 백업에서 복원 테스트 진행. full backup 복원 후 WAL replay까지 3.5시간 소요. RTO 4시간 이내 목표 달성 확인.","content":"payment-db 복구 훈련. 백업 복원 + WAL replay 3.5시간 소요. RTO 4시간 목표 달성.","conversation_id":"conv-db-020","timestamp":"2026-02-08T06:00:00Z","importance":0.8,"category":"database","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"api-gateway Pod OOMKilled 발생. 메모리 리밋 256Mi에서 512Mi로 상향 조정. JVM 힙 사이즈도 함께 조정하여 안정화.","content":"api-gateway Pod OOMKilled. 메모리 리밋 256Mi→512Mi 상향 및 JVM 힙 조정으로 해결.","conversation_id":"conv-k8s-001","timestamp":"2025-11-18T10:00:00Z","importance":0.85,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":3}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"batch-worker HPA 설정 작업. CPU 70% 기준으로 min 2, max 10 설정. 야간 배치 처리 시 자동 스케일링 확인 완료.","content":"batch-worker HPA 구성. CPU 70% 기준, min 2/max 10. 야간 배치 시 자동 스케일링 정상 동작.","conversation_id":"conv-k8s-002","timestamp":"2025-12-03T11:30:00Z","importance":0.7,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"프로덕션 노드 3번 drain 작업 진행. 커널 업데이트를 위한 계획된 작업. PodDisruptionBudget 설정 확인 후 안전하게 drain 완료.","content":"프로덕션 노드 drain. 커널 업데이트를 위한 계획된 작업. PDB 설정 확인 후 안전하게 완료.","conversation_id":"conv-k8s-003","timestamp":"2025-12-12T22:00:00Z","importance":0.65,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"PVC 용량 부족 알림. monitoring 네임스페이스의 Prometheus PVC 80% 사용. gp3로 StorageClass 변경하고 볼륨 확장 진행.","content":"Prometheus PVC 용량 부족. gp3 StorageClass로 변경 및 볼륨 확장 완료.","conversation_id":"conv-k8s-004","timestamp":"2025-12-20T15:00:00Z","importance":0.7,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Istio 서비스 메시 설정 작업. 사이드카 인젝션 활성화하고 mTLS strict 모드 적용. 초기 504 에러 발생하여 DestinationRule 조정으로 해결.","content":"Istio 서비스 메시 구성. mTLS strict 모드 적용. 504 에러는 DestinationRule 조정으로 해결.","conversation_id":"conv-k8s-005","timestamp":"2026-01-08T09:00:00Z","importance":0.8,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"nginx ingress controller 업그레이드 후 일부 경로 404 반환. annotation 형식이 변경됨. kubernetes.io/ingress.class에서 ingressClassName 필드로 마이그레이션 완료.","content":"nginx ingress controller 업그레이드 후 404 발생. annotation → ingressClassName 필드 마이그레이션으로 해결.","conversation_id":"conv-k8s-006","timestamp":"2026-01-15T13:00:00Z","importance":0.75,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"monitoring 네임스페이스 리소스 쿼터 설정. CPU 4 cores, 메모리 8Gi 할당. LimitRange로 기본 리소스 요청/제한값도 설정.","content":"monitoring 네임스페이스 리소스 쿼터 설정. CPU 4cores, Memory 8Gi. LimitRange 기본값 구성.","conversation_id":"conv-k8s-007","timestamp":"2026-01-22T10:00:00Z","importance":0.6,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"order-service 롤링 업데이트 중 실패. readinessProbe 설정 누락으로 트래픽이 준비 안 된 Pod로 라우팅. probe 추가 후 재배포 성공.","content":"order-service 롤링 업데이트 실패. readinessProbe 누락이 원인. probe 추가 후 정상 배포.","conversation_id":"conv-k8s-008","timestamp":"2026-01-28T16:30:00Z","importance":0.8,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"ConfigMap 변경 후 Pod 재시작 자동화. Reloader 도입하여 ConfigMap/Secret 변경 시 자동 롤링 업데이트 설정 완료.","content":"ConfigMap/Secret 변경 자동 반영을 위해 Reloader 도입. 자동 롤링 업데이트 설정.","conversation_id":"conv-k8s-009","timestamp":"2026-02-01T11:00:00Z","importance":0.65,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Kubernetes 1.27에서 1.28로 클러스터 업그레이드 완료. 사전 호환성 체크 진행하고 컨트롤 플레인 먼저 업그레이드 후 워커 노드 순차 진행.","content":"k8s 클러스터 1.27→1.28 업그레이드 완료. 컨트롤 플레인 → 워커 노드 순차 진행.","conversation_id":"conv-k8s-010","timestamp":"2026-02-06T20:00:00Z","importance":0.85,"category":"kubernetes","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"cache-server 메모리 사용량 경고. 현재 1.8GB/2GB 사용 중. maxmemory-policy allkeys-lru 확인만 하고 별도 조치는 하지 않음.","content":"cache-server 메모리 1.8GB/2GB 사용. maxmemory-policy allkeys-lru 확인. 별도 조치 없음.","conversation_id":"conv-redis-001","timestamp":"2025-12-28T09:00:00Z","importance":0.5,"category":"redis","source_type":"conversation","reflected":false,"access_count":0}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Redis 연결 타임아웃 간헐적 발생 보고. 클라이언트 측 타임아웃 설정 확인 필요하다는 메모만 남김.","content":"Redis 연결 타임아웃 간헐적 발생. 클라이언트 타임아웃 설정 확인 필요.","conversation_id":"conv-redis-002","timestamp":"2026-01-05T16:00:00Z","importance":0.5,"category":"redis","source_type":"conversation","reflected":false,"access_count":0}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Prometheus 알림 규칙 설정. CPU 80% 이상 5분 지속, 메모리 90% 이상, Pod restart 3회 이상 알림 구성. Alertmanager를 통해 Slack 연동.","content":"Prometheus 알림 규칙 구성. CPU/메모리/Pod restart 임계값 설정. Alertmanager-Slack 연동 완료.","conversation_id":"conv-mon-001","timestamp":"2025-12-08T10:00:00Z","importance":0.75,"category":"monitoring","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Grafana에 서비스별 대시보드 생성. payment-service, order-service, api-gateway 각각 응답시간, 에러율, 처리량 패널 구성. 팀 전체 공유.","content":"Grafana 서비스별 대시보드 생성. 응답시간/에러율/처리량 패널 구성. 팀 공유 완료.","conversation_id":"conv-mon-002","timestamp":"2025-12-18T14:00:00Z","importance":0.7,"category":"monitoring","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"ELK 스택 로그 파이프라인 구성. Filebeat로 컨테이너 로그 수집, Logstash로 파싱, Elasticsearch에 적재. 인덱스 패턴 설정 완료.","content":"ELK 로그 파이프라인 구성. Filebeat→Logstash→Elasticsearch 파이프라인 설정 완료.","conversation_id":"conv-mon-003","timestamp":"2026-01-03T11:00:00Z","importance":0.7,"category":"monitoring","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Datadog APM 연동 작업. Java 서비스에 dd-java-agent 적용. 분산 추적 활성화하고 샘플링 레이트 10%로 설정. 비용 최적화를 위한 선택.","content":"Datadog APM 연동. Java 서비스 분산 추적 활성화. 샘플링 10%로 비용 최적화.","conversation_id":"conv-mon-004","timestamp":"2026-01-18T09:30:00Z","importance":0.7,"category":"monitoring","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"알림 피로도 문제 대응. 하루 200건 이상 알림 발생하여 중요 알림 놓침. 알림 그룹핑, 임계값 재조정, 우선순위 분류 작업 진행.","content":"알림 피로도 문제. 하루 200건+ 알림으로 중요 알림 누락. 그룹핑/임계값 재조정/우선순위 분류 적용.","conversation_id":"conv-mon-005","timestamp":"2026-02-03T15:00:00Z","importance":0.8,"category":"monitoring","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Jenkins 파이프라인 최적화. 빌드 시간 25분에서 12분으로 단축. 병렬 스테이지, 캐시 활용, 불필요한 테스트 제거.","content":"Jenkins 파이프라인 최적화. 빌드 시간 25분→12분. 병렬 스테이지 및 캐시 활용.","conversation_id":"conv-cicd-001","timestamp":"2025-11-28T10:00:00Z","importance":0.75,"category":"ci-cd","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Docker 멀티스테이지 빌드 적용. 빌드 이미지와 런타임 이미지 분리로 이미지 크기 1.2GB에서 350MB로 축소. 레이어 캐시 최적화도 진행.","content":"Docker 멀티스테이지 빌드 적용. 이미지 크기 1.2GB→350MB 축소. 레이어 캐시 최적화.","conversation_id":"conv-cicd-002","timestamp":"2025-12-10T14:00:00Z","importance":0.7,"category":"ci-cd","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"ArgoCD 도입하여 GitOps 워크플로우 구성. Git 리포지토리를 Single Source of Truth로 설정. 자동 동기화 및 드리프트 감지 활성화.","content":"ArgoCD 기반 GitOps 워크플로우 구성. Git을 SSOT로 설정. 자동 동기화/드리프트 감지 활성화.","conversation_id":"conv-cicd-003","timestamp":"2025-12-22T09:00:00Z","importance":0.8,"category":"ci-cd","source_type":"conversation","reflected":false,"access_count":2}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"카나리 배포 설정. Argo Rollouts 사용하여 초기 5% 트래픽으로 시작, 에러율 1% 미만 확인 후 단계적 증가. 자동 롤백 조건도 설정.","content":"카나리 배포 구성. Argo Rollouts로 초기 5% 트래픽. 에러율 기반 자동 롤백 조건 설정.","conversation_id":"conv-cicd-004","timestamp":"2026-01-10T11:00:00Z","importance":0.75,"category":"ci-cd","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"프로덕션 배포 롤백 절차 문서화 및 테스트. ArgoCD를 통한 Git revert 방식 롤백, Kubernetes rollout undo 방식 모두 검증.","content":"프로덕션 롤백 절차 정립. ArgoCD Git revert + k8s rollout undo 두 가지 방식 검증 완료.","conversation_id":"conv-cicd-005","timestamp":"2026-01-20T15:30:00Z","importance":0.7,"category":"ci-cd","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"테스트 환경 자동 프로비저닝 구성. PR 생성 시 자동으로 임시 환경 배포. 머지 후 자동 정리. Namespace 기반 격리 적용.","content":"테스트 환경 자동 프로비저닝. PR별 임시 환경 자동 배포/정리. Namespace 기반 격리.","conversation_id":"conv-cicd-006","timestamp":"2026-02-06T10:00:00Z","importance":0.7,"category":"ci-cd","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"SSL 인증서 만료 장애 발생. cert-manager 자동 갱신 실패 원인 분석. DNS challenge 권한 문제. 갱신 주기 90일로 설정하고 만료 30일 전 알림 추가.","content":"SSL 인증서 만료 장애. cert-manager DNS challenge 권한 문제. 갱신 주기 90일, 만료 30일 전 알림 설정.","conversation_id":"conv-sec-001","timestamp":"2025-12-15T08:00:00Z","importance":0.9,"category":"security","source_type":"conversation","reflected":false,"access_count":3}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Kubernetes NetworkPolicy 설정. 네임스페이스 간 통신 제한하고 필요한 서비스만 허용. 기본 deny-all 정책 적용 후 화이트리스트 방식으로 운영.","content":"k8s NetworkPolicy 구성. 기본 deny-all + 화이트리스트 방식. 네임스페이스 간 통신 제한.","conversation_id":"conv-sec-002","timestamp":"2026-01-08T14:00:00Z","importance":0.8,"category":"security","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"HashiCorp Vault 도입하여 시크릿 관리 중앙화. Kubernetes auth method 설정하고 동적 시크릿 생성 활성화. 기존 k8s Secrets에서 마이그레이션 진행 중.","content":"Vault 도입으로 시크릿 관리 중앙화. k8s auth method + 동적 시크릿 활성화. Secrets 마이그레이션 진행 중.","conversation_id":"conv-sec-003","timestamp":"2026-01-22T10:00:00Z","importance":0.8,"category":"security","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"Trivy를 이용한 컨테이너 이미지 취약점 스캐닝 파이프라인 구성. CI에서 빌드 시 자동 스캔, Critical/High 발견 시 배포 차단. 주간 전체 스캔도 설정.","content":"Trivy 컨테이너 취약점 스캐닝 구성. CI 자동 스캔 + Critical/High 배포 차단. 주간 전체 스캔 설정.","conversation_id":"conv-sec-004","timestamp":"2026-01-25T11:00:00Z","importance":0.75,"category":"security","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"HAProxy 설정 최적화. maxconn 10000으로 조정, timeout client/server 30초 설정. 백엔드 서버별 가중치 기반 라운드로빈 적용.","content":"HAProxy 최적화. maxconn 10000, timeout 30초. 가중치 기반 라운드로빈 적용.","conversation_id":"conv-lb-001","timestamp":"2025-12-05T10:00:00Z","importance":0.7,"category":"load-balancing","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"배포 시 커넥션 드레이닝 설정. 기존 연결 완료 대기 시간 60초. graceful shutdown과 연동하여 무중단 배포 달성.","content":"커넥션 드레이닝 설정. 60초 대기. graceful shutdown 연동으로 무중단 배포 달성.","conversation_id":"conv-lb-002","timestamp":"2026-01-12T14:00:00Z","importance":0.65,"category":"load-balancing","source_type":"conversation","reflected":false,"access_count":1}
+{"index":{"_index":"episodic-memories"}}
+{"raw_text":"헬스체크 최적화. 체크 간격 30초에서 5초로 단축. 불건강 서버 빠른 제거로 사용자 영향 최소화. fall 3, rise 2 설정.","content":"헬스체크 간격 30초→5초 단축. fall 3/rise 2 설정으로 불건강 서버 빠른 제거.","conversation_id":"conv-lb-003","timestamp":"2026-01-28T09:00:00Z","importance":0.65,"category":"load-balancing","source_type":"conversation","reflected":false,"access_count":1}

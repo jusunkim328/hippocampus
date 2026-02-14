@@ -1,0 +1,74 @@
+{"index":{"_index":"semantic-memories"}}
+{"content":"payment-service db-connection-pool-size 50이 최적","entity":"payment-service","attribute":"db-connection-pool-size","value":"50이 최적","confidence":0.7,"category":"database","source_conversation_ids":["conv-db-003"],"first_observed":"2025-11-15T10:00:00Z","last_updated":"2025-11-15T10:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"payment-service db-connection-pool-size 50→100 증설로 해결","entity":"payment-service","attribute":"db-connection-pool-size","value":"50→100 증설로 해결","confidence":0.9,"category":"database","source_conversation_ids":["conv-db-018"],"first_observed":"2026-02-12T14:00:00Z","last_updated":"2026-02-12T14:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"payment-service db-timeout 5초에서 10초로 증가하여 해결","entity":"payment-service","attribute":"db-timeout","value":"5초에서 10초로 증가하여 해결","confidence":0.85,"category":"database","source_conversation_ids":["conv-db-007"],"first_observed":"2025-12-05T14:30:00Z","last_updated":"2025-12-05T14:30:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"postgres-main max-connections 200","entity":"postgres-main","attribute":"max-connections","value":"200","confidence":0.8,"category":"database","source_conversation_ids":["conv-db-006"],"first_observed":"2025-12-01T03:15:00Z","last_updated":"2025-12-01T03:15:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"postgres-main shared-buffers 4GB 권장","entity":"postgres-main","attribute":"shared-buffers","value":"4GB 권장","confidence":0.85,"category":"database","source_conversation_ids":["conv-db-012"],"first_observed":"2026-01-05T13:00:00Z","last_updated":"2026-01-05T13:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"mysql-replica replication-lag-threshold 10초 이상이면 알림","entity":"mysql-replica","attribute":"replication-lag-threshold","value":"10초 이상이면 알림","confidence":0.75,"category":"database","source_conversation_ids":["conv-db-005"],"first_observed":"2025-11-25T08:45:00Z","last_updated":"2025-11-25T08:45:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"payment-db backup-schedule 매일 02:00 UTC","entity":"payment-db","attribute":"backup-schedule","value":"매일 02:00 UTC","confidence":0.9,"category":"database","source_conversation_ids":["conv-db-009"],"first_observed":"2025-12-15T10:00:00Z","last_updated":"2025-12-15T10:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"payment-db recovery-time-objective 4시간 이내","entity":"payment-db","attribute":"recovery-time-objective","value":"4시간 이내","confidence":0.85,"category":"database","source_conversation_ids":["conv-db-020"],"first_observed":"2026-02-08T06:00:00Z","last_updated":"2026-02-08T06:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"order-service query-optimization 인덱스 추가로 응답시간 80% 개선","entity":"order-service","attribute":"query-optimization","value":"인덱스 추가로 응답시간 80% 개선","confidence":0.9,"category":"database","source_conversation_ids":["conv-db-008"],"first_observed":"2025-12-10T16:00:00Z","last_updated":"2025-12-10T16:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"user-db schema-migration-tool Flyway 사용","entity":"user-db","attribute":"schema-migration-tool","value":"Flyway 사용","confidence":0.8,"category":"database","source_conversation_ids":["conv-db-010"],"first_observed":"2025-12-20T09:15:00Z","last_updated":"2025-12-20T09:15:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"payment-db deadlock-solution 트랜잭션 순서 통일","entity":"payment-db","attribute":"deadlock-solution","value":"트랜잭션 순서 통일","confidence":0.9,"category":"database","source_conversation_ids":["conv-db-011"],"first_observed":"2025-12-25T11:30:00Z","last_updated":"2025-12-25T11:30:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"postgres-main vacuum-schedule 매주 일요일 자동 실행","entity":"postgres-main","attribute":"vacuum-schedule","value":"매주 일요일 자동 실행","confidence":0.8,"category":"database","source_conversation_ids":["conv-db-013"],"first_observed":"2026-01-10T08:00:00Z","last_updated":"2026-01-10T08:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"analytics-db partitioning-strategy 월별 파티셔닝 적용","entity":"analytics-db","attribute":"partitioning-strategy","value":"월별 파티셔닝 적용","confidence":0.85,"category":"database","source_conversation_ids":["conv-db-014"],"first_observed":"2026-01-15T15:00:00Z","last_updated":"2026-01-15T15:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"payment-service connection-pool-monitor HikariCP 메트릭 Prometheus 연동","entity":"payment-service","attribute":"connection-pool-monitor","value":"HikariCP 메트릭 Prometheus 연동","confidence":0.8,"category":"database","source_conversation_ids":["conv-db-015"],"first_observed":"2026-01-20T10:30:00Z","last_updated":"2026-01-20T10:30:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"postgres-main wal-level replica로 설정","entity":"postgres-main","attribute":"wal-level","value":"replica로 설정","confidence":0.85,"category":"database","source_conversation_ids":["conv-db-016"],"first_observed":"2026-01-25T09:00:00Z","last_updated":"2026-01-25T09:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"order-db slow-query-threshold 500ms 이상","entity":"order-db","attribute":"slow-query-threshold","value":"500ms 이상","confidence":0.8,"category":"database","source_conversation_ids":["conv-db-017"],"first_observed":"2026-01-30T14:00:00Z","last_updated":"2026-01-30T14:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"api-gateway resource-limit-cpu 500m","entity":"api-gateway","attribute":"resource-limit-cpu","value":"500m","confidence":0.8,"category":"kubernetes","source_conversation_ids":["conv-k8s-001"],"first_observed":"2025-11-18T10:00:00Z","last_updated":"2025-11-18T10:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"api-gateway resource-limit-memory 512Mi","entity":"api-gateway","attribute":"resource-limit-memory","value":"512Mi","confidence":0.8,"category":"kubernetes","source_conversation_ids":["conv-k8s-001"],"first_observed":"2025-11-18T10:00:00Z","last_updated":"2025-11-18T10:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"batch-worker hpa-min-replicas 2","entity":"batch-worker","attribute":"hpa-min-replicas","value":"2","confidence":0.8,"category":"kubernetes","source_conversation_ids":["conv-k8s-002"],"first_observed":"2025-12-03T11:30:00Z","last_updated":"2025-12-03T11:30:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"batch-worker hpa-max-replicas 10","entity":"batch-worker","attribute":"hpa-max-replicas","value":"10","confidence":0.8,"category":"kubernetes","source_conversation_ids":["conv-k8s-002"],"first_observed":"2025-12-03T11:30:00Z","last_updated":"2025-12-03T11:30:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"production-cluster k8s-version 1.28","entity":"production-cluster","attribute":"k8s-version","value":"1.28","confidence":0.9,"category":"kubernetes","source_conversation_ids":["conv-k8s-010"],"first_observed":"2026-02-06T20:00:00Z","last_updated":"2026-02-06T20:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"ingress-controller type nginx","entity":"ingress-controller","attribute":"type","value":"nginx","confidence":0.85,"category":"kubernetes","source_conversation_ids":["conv-k8s-006"],"first_observed":"2026-01-15T13:00:00Z","last_updated":"2026-01-15T13:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"monitoring-namespace resource-quota-cpu 4 cores","entity":"monitoring-namespace","attribute":"resource-quota-cpu","value":"4 cores","confidence":0.8,"category":"kubernetes","source_conversation_ids":["conv-k8s-007"],"first_observed":"2026-01-22T10:00:00Z","last_updated":"2026-01-22T10:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"pvc-storage default-class gp3","entity":"pvc-storage","attribute":"default-class","value":"gp3","confidence":0.8,"category":"kubernetes","source_conversation_ids":["conv-k8s-004"],"first_observed":"2025-12-20T15:00:00Z","last_updated":"2025-12-20T15:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"cache-server max-memory 2GB","entity":"cache-server","attribute":"max-memory","value":"2GB","confidence":0.5,"category":"redis","source_conversation_ids":["conv-redis-001"],"first_observed":"2025-12-28T09:00:00Z","last_updated":"2025-12-28T09:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"prometheus retention 15일","entity":"prometheus","attribute":"retention","value":"15일","confidence":0.8,"category":"monitoring","source_conversation_ids":["conv-mon-001"],"first_observed":"2025-12-08T10:00:00Z","last_updated":"2025-12-08T10:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"grafana alert-channel Slack #ops-alerts","entity":"grafana","attribute":"alert-channel","value":"Slack #ops-alerts","confidence":0.8,"category":"monitoring","source_conversation_ids":["conv-mon-002"],"first_observed":"2025-12-18T14:00:00Z","last_updated":"2025-12-18T14:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"apm sampling-rate 10%","entity":"apm","attribute":"sampling-rate","value":"10%","confidence":0.75,"category":"monitoring","source_conversation_ids":["conv-mon-004"],"first_observed":"2026-01-18T09:30:00Z","last_updated":"2026-01-18T09:30:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"jenkins pipeline-timeout 30분","entity":"jenkins","attribute":"pipeline-timeout","value":"30분","confidence":0.8,"category":"ci-cd","source_conversation_ids":["conv-cicd-001"],"first_observed":"2025-11-28T10:00:00Z","last_updated":"2025-11-28T10:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"docker-build cache-strategy multi-stage build","entity":"docker-build","attribute":"cache-strategy","value":"multi-stage build","confidence":0.8,"category":"ci-cd","source_conversation_ids":["conv-cicd-002"],"first_observed":"2025-12-10T14:00:00Z","last_updated":"2025-12-10T14:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"gitops tool ArgoCD","entity":"gitops","attribute":"tool","value":"ArgoCD","confidence":0.85,"category":"ci-cd","source_conversation_ids":["conv-cicd-003"],"first_observed":"2025-12-22T09:00:00Z","last_updated":"2025-12-22T09:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"canary traffic-percentage 초기 5%","entity":"canary","attribute":"traffic-percentage","value":"초기 5%","confidence":0.8,"category":"ci-cd","source_conversation_ids":["conv-cicd-004"],"first_observed":"2026-01-10T11:00:00Z","last_updated":"2026-01-10T11:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"ssl-cert rotation-period 90일","entity":"ssl-cert","attribute":"rotation-period","value":"90일","confidence":0.85,"category":"security","source_conversation_ids":["conv-sec-001"],"first_observed":"2025-12-15T08:00:00Z","last_updated":"2025-12-15T08:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"k8s-secrets management-tool Vault","entity":"k8s-secrets","attribute":"management-tool","value":"Vault","confidence":0.8,"category":"security","source_conversation_ids":["conv-sec-003"],"first_observed":"2026-01-22T10:00:00Z","last_updated":"2026-01-22T10:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"vulnerability-scan schedule 매주 월요일","entity":"vulnerability-scan","attribute":"schedule","value":"매주 월요일","confidence":0.75,"category":"security","source_conversation_ids":["conv-sec-004"],"first_observed":"2026-01-25T11:00:00Z","last_updated":"2026-01-25T11:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"haproxy max-connections 10000","entity":"haproxy","attribute":"max-connections","value":"10000","confidence":0.75,"category":"load-balancing","source_conversation_ids":["conv-lb-001"],"first_observed":"2025-12-05T10:00:00Z","last_updated":"2025-12-05T10:00:00Z","update_count":1}
+{"index":{"_index":"semantic-memories"}}
+{"content":"health-check interval 5초","entity":"health-check","attribute":"interval","value":"5초","confidence":0.7,"category":"load-balancing","source_conversation_ids":["conv-lb-003"],"first_observed":"2026-01-28T09:00:00Z","last_updated":"2026-01-28T09:00:00Z","update_count":1}

@@ -1,0 +1,16 @@
+{
+  "mappings": {
+    "properties": {
+      "content":       { "type": "semantic_text", "inference_id": ".elser-2-elastic" },
+      "entity":        { "type": "keyword" },
+      "attribute":     { "type": "keyword" },
+      "value":         { "type": "text", "fields": { "keyword": { "type": "keyword" } } },
+      "confidence":    { "type": "float" },
+      "category":      { "type": "keyword" },
+      "source_conversation_ids": { "type": "keyword" },
+      "first_observed": { "type": "date" },
+      "last_updated":   { "type": "date" },
+      "update_count":   { "type": "integer", "null_value": 1 }
+    }
+  }
+}

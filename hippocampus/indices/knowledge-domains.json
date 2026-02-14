@@ -1,0 +1,12 @@
+{
+  "mappings": {
+    "properties": {
+      "domain":          { "type": "keyword" },
+      "memory_count":    { "type": "integer" },
+      "avg_confidence":  { "type": "float" },
+      "last_updated":    { "type": "date" },
+      "density_score":   { "type": "float" },
+      "status":          { "type": "keyword" }
+    }
+  }
+}

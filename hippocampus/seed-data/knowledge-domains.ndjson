@@ -1,0 +1,16 @@
+{"index":{"_index":"knowledge-domains"}}
+{"domain":"database","memory_count":35,"avg_confidence":0.85,"last_updated":"2026-02-12T14:00:00Z","density_score":29.75,"status":"DENSE"}
+{"index":{"_index":"knowledge-domains"}}
+{"domain":"kubernetes","memory_count":15,"avg_confidence":0.75,"last_updated":"2026-01-29T10:00:00Z","density_score":11.25,"status":"DENSE"}
+{"index":{"_index":"knowledge-domains"}}
+{"domain":"redis","memory_count":3,"avg_confidence":0.5,"last_updated":"2025-12-30T09:00:00Z","density_score":1.5,"status":"SPARSE"}
+{"index":{"_index":"knowledge-domains"}}
+{"domain":"networking","memory_count":0,"avg_confidence":0.0,"last_updated":"2025-11-15T00:00:00Z","density_score":0.0,"status":"VOID"}
+{"index":{"_index":"knowledge-domains"}}
+{"domain":"monitoring","memory_count":8,"avg_confidence":0.7,"last_updated":"2026-02-03T15:00:00Z","density_score":5.6,"status":"DENSE"}
+{"index":{"_index":"knowledge-domains"}}
+{"domain":"ci-cd","memory_count":10,"avg_confidence":0.72,"last_updated":"2026-02-06T10:00:00Z","density_score":7.2,"status":"DENSE"}
+{"index":{"_index":"knowledge-domains"}}
+{"domain":"security","memory_count":7,"avg_confidence":0.68,"last_updated":"2026-01-24T10:00:00Z","density_score":4.76,"status":"SPARSE"}
+{"index":{"_index":"knowledge-domains"}}
+{"domain":"load-balancing","memory_count":5,"avg_confidence":0.65,"last_updated":"2026-01-19T09:00:00Z","density_score":3.25,"status":"SPARSE"}

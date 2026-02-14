@@ -1,0 +1,11 @@
+{
+  "mappings": {
+    "properties": {
+      "source_memory_id":  { "type": "keyword" },
+      "target_memory_id":  { "type": "keyword" },
+      "association_type":  { "type": "keyword" },
+      "strength":          { "type": "float" },
+      "created_at":        { "type": "date" }
+    }
+  }
+}
