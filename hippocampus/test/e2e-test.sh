@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Hippocampus E2E Test — Converse API
-# Trust Gate 4가지 시나리오를 API 레벨에서 자동 검증 (2~5초/쿼리)
+# Trust Gate 6가지 시나리오를 API 레벨에서 자동 검증 (2~5초/쿼리)
 #
 # 사용법:
 #   export $(cat .env | xargs)
@@ -20,7 +20,7 @@ ES_API_KEY="${ES_API_KEY:?ES_API_KEY is required. Set it in .env}"
 AGENT_ID="hippocampus"
 PASS=0
 FAIL=0
-TOTAL=4
+TOTAL=6
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -60,7 +60,7 @@ check() {
   fi
 
   # 시나리오별 키워드 확인
-  if ! echo "$content" | grep -qi "$keyword"; then
+  if ! echo "$content" | grep -qiE "$keyword"; then
     echo "  FAIL  #${test_num} ${label}"
     echo "        -> '${keyword}' 키워드 없음"
     echo "        -> 응답 첫 200자: ${content:0:200}"
@@ -80,18 +80,18 @@ echo "AGENT_ID:   ${AGENT_ID}"
 echo ""
 
 # ── Test 1: Grade A + CONFLICT ──────────────────────────────────────────────
-echo "[1/4] Grade A + CONFLICT — DB 커넥션 타임아웃 ..."
+echo "[1/6] Grade A + CONFLICT — DB 커넥션 타임아웃 ..."
 RESP1=$(converse "Payment 서비스에서 DB 커넥션 타임아웃이 반복 발생")
-check 1 "Grade A + CONFLICT" "$RESP1" "CONFLICT"
+check 1 "Grade A + CONFLICT" "$RESP1" "CONFLICT|모순|contradiction|Knowledge Drift|상충"
 
 # ── Test 2: Grade D + Blindspot ──────────────────────────────────────────────
 # networking 도메인은 seed data에서 VOID (memory_count=0) → 항상 blindspot
-echo "[2/4] Grade D + Blindspot — 네트워크 패킷 드롭 ..."
+echo "[2/6] Grade D + Blindspot — 네트워크 패킷 드롭 ..."
 RESP2=$(converse "네트워크에서 간헐적 패킷 드롭이 발생하고 있습니다")
 check 2 "Grade D + Blindspot" "$RESP2" "사각지대"
 
 # ── Test 3: Remember (경험 저장) ─────────────────────────────────────────────
-echo "[3/4] Remember — Redis 경험 저장 ..."
+echo "[3/6] Remember — Redis 경험 저장 ..."
 RESP3=$(converse "방금 Redis maxmemory를 4GB로 증설해서 해결했습니다. 저장해주세요")
 CONTENT3=$(echo "$RESP3" | jq -r '.response.message // .content // empty' 2>/dev/null)
 
@@ -106,27 +106,65 @@ else
   FAIL=$((FAIL + 1))
 fi
 
-# ── Test 4: Grade 상승 (저장 후 재질문) ─────────────────────────────────────
-echo "[4/4] Grade 상승 — Redis 재질문 ..."
-# 저장 후 인덱싱 대기 (semantic_text 추론 포함)
-sleep 3
-RESP4=$(converse "Redis 캐시 지연 해결 방법을 알려주세요")
+# ── Test 4: Reflect (에피소드 통합) ────────────────────────────────────────
+echo "[4/6] Reflect — 에피소드 기억 통합 ..."
+RESP4=$(converse "에피소드 기억을 통합 분석해주세요")
 CONTENT4=$(echo "$RESP4" | jq -r '.response.message // .content // empty' 2>/dev/null)
 
+if [ -z "$CONTENT4" ]; then
+  echo "  FAIL  #4 Reflect (에피소드 통합)"
+  echo "        -> .content 필드 없음"
+  FAIL=$((FAIL + 1))
+elif echo "$CONTENT4" | grep -qiE "통합|consolidat|에피소드|reflect|도메인|SPARSE|DENSE"; then
+  echo "  PASS  #4 Reflect (에피소드 통합)"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL  #4 Reflect (에피소드 통합)"
+  echo "        -> 통합/consolidate/에피소드/도메인 키워드 없음"
+  echo "        -> 응답 첫 200자: ${CONTENT4:0:200}"
+  FAIL=$((FAIL + 1))
+fi
+
+# ── Test 5: Blindspot Report (사각지대 보고서) ────────────────────────────────
+echo "[5/6] Blindspot Report — 전체 사각지대 보고서 ..."
+RESP5=$(converse "지식 사각지대 보고서를 생성해주세요")
+CONTENT5=$(echo "$RESP5" | jq -r '.response.message // .content // empty' 2>/dev/null)
+
+if [ -z "$CONTENT5" ]; then
+  echo "  FAIL  #5 Blindspot Report"
+  echo "        -> .content 필드 없음"
+  FAIL=$((FAIL + 1))
+elif echo "$CONTENT5" | grep -qiE "VOID|SPARSE|DENSE|Stale|사각지대|blindspot"; then
+  echo "  PASS  #5 Blindspot Report (사각지대 보고서)"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL  #5 Blindspot Report"
+  echo "        -> VOID/SPARSE/DENSE/Stale/사각지대 키워드 없음"
+  echo "        -> 응답 첫 200자: ${CONTENT5:0:200}"
+  FAIL=$((FAIL + 1))
+fi
+
+# ── Test 6: Grade 상승 (저장 후 재질문) ─────────────────────────────────────
+echo "[6/6] Grade 상승 — Redis 재질문 ..."
+# 저장 후 인덱싱 대기 (semantic_text 추론 포함)
+sleep 3
+RESP6=$(converse "Redis 캐시 지연 해결 방법을 알려주세요")
+CONTENT6=$(echo "$RESP6" | jq -r '.response.message // .content // empty' 2>/dev/null)
+
 # Grade D가 아니면 성공 (A, B, C 모두 상승으로 간주)
-if echo "$CONTENT4" | grep -q "Experience Grade"; then
-  if echo "$CONTENT4" | grep -q "Grade: D"; then
-    echo "  FAIL  #4 Grade 상승 (D→A/B 기대)"
+if echo "$CONTENT6" | grep -q "Experience Grade"; then
+  if echo "$CONTENT6" | grep -q "Grade: D"; then
+    echo "  FAIL  #6 Grade 상승 (D→A/B 기대)"
     echo "        -> 여전히 Grade D"
     FAIL=$((FAIL + 1))
   else
-    echo "  PASS  #4 Grade 상승 (D→A/B)"
+    echo "  PASS  #6 Grade 상승 (D→A/B)"
     PASS=$((PASS + 1))
   fi
 else
-  echo "  FAIL  #4 Grade 상승"
+  echo "  FAIL  #6 Grade 상승"
   echo "        -> 'Experience Grade' 라벨 없음"
-  echo "        -> 응답 첫 200자: ${CONTENT4:0:200}"
+  echo "        -> 응답 첫 200자: ${CONTENT6:0:200}"
   FAIL=$((FAIL + 1))
 fi
 

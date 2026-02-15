@@ -146,6 +146,11 @@ async def remember_memory(
     now = datetime.now(timezone.utc).isoformat()
     results = {}
 
+    # 입력값 정규화 — keyword 필드 대소문자 중복 방지
+    entity = entity.strip().lower()
+    attribute = attribute.strip().lower()
+    category = category.strip().lower()
+
     # 1) episodic-memories — 원본 경험 기록
     try:
         r = await _index_document("episodic-memories", {
