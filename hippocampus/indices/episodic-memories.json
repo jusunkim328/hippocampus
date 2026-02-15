@@ -16,7 +16,8 @@
       "last_accessed":    { "type": "date" },
       "category":         { "type": "keyword" },
       "source_type":      { "type": "keyword" },
-      "reflected":        { "type": "boolean", "null_value": false }
+      "reflected":        { "type": "boolean", "null_value": false },
+      "external_refs":    { "type": "keyword" }
     }
   }
 }

@@ -13,7 +13,8 @@
       "source_conversation_ids": { "type": "keyword" },
       "first_observed": { "type": "date" },
       "last_updated":   { "type": "date" },
-      "update_count":   { "type": "integer", "null_value": 1 }
+      "update_count":   { "type": "integer", "null_value": 1 },
+      "external_refs":  { "type": "keyword" }
     }
   }
 }

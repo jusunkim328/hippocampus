@@ -47,7 +47,7 @@ docker compose up -d --build
 bash setup/01-indices.sh         # 5 ES indices (ES API)
 bash setup/02-ilm-policies.sh    # 2 ILM policies (ES API)
 bash setup/03-tools.sh           # 4 ESQL Agent Builder tools (Kibana API)
-bash setup/04-mcp-tools.sh       # MCP connector + 3 MCP tools (Kibana API)
+bash setup/04-mcp-tools.sh       # MCP connector + 5 MCP tools (Kibana API)
 bash setup/05-agent.sh           # 1 agent (Kibana API)
 bash setup/06-seed-data.sh       # Seed data via _bulk (ES API)
 
@@ -72,7 +72,7 @@ for tool in hippocampus-recall hippocampus-contradict hippocampus-blindspot-dens
     -H "Authorization: ApiKey ${ES_API_KEY}" -H "kbn-xsrf: true" -H "x-elastic-internal-origin: Kibana"
 done
 bash setup/03-tools.sh
-bash setup/04-mcp-tools.sh  # MCP 도구 3개는 스크립트 내에서 자체 삭제+생성
+bash setup/04-mcp-tools.sh  # MCP 도구 5개는 스크립트 내에서 자체 삭제+생성
 
 # 에이전트 삭제 + 재등록
 curl -X DELETE "${KIBANA_URL}/api/agent_builder/agents/hippocampus" \
@@ -113,17 +113,19 @@ Query → STEP 1: Recall + Blindspot (동시 호출)
 
 `KIBANA_URL`은 `ES_URL`과 **서브도메인이 다름** — ES URL에서 유도 불가.
 
-### Agent Builder Tools (9개: 7 커스텀 + 2 플랫폼)
+### Agent Builder Tools (11개: 9 커스텀 + 2 플랫폼)
 
 | 도구 | 타입 | Trust Gate 역할 |
 |------|------|----------------|
-| `hippocampus-recall` | esql | STEP 1 — 경험 시맨틱 검색 (상위 5건) |
+| `hippocampus-recall` | esql | STEP 1 — 경험 시맨틱 검색 (상위 5건, external_refs 포함) |
 | `hippocampus-blindspot-targeted` | esql | STEP 1 — 도메인 밀도 조회 |
 | `hippocampus-contradict` | esql | STEP 3 — Knowledge Drift 감지 |
 | `hippocampus-blindspot-density` | esql | 전체 도메인 밀도 스캔 |
-| `hippocampus-remember` | mcp | 새 경험 저장 (3개 인덱스에 쓰기) |
+| `hippocampus-remember` | mcp | 새 경험 저장 (3개 인덱스 + optional external_refs) |
 | `hippocampus-reflect` | mcp | 에피소드 통합 (카테고리 집계 → 도메인 갱신) |
 | `hippocampus-blindspot-report` | mcp | 전체 사각지대 보고서 (VOID/SPARSE/DENSE/Stale) |
+| `hippocampus-export` | mcp | 지식 베이스 NDJSON 내보내기 (백업/팀 공유) |
+| `hippocampus-import` | mcp | 지식 베이스 NDJSON 가져오기 (중복 CONFLICT 탐지) |
 | `platform.core.execute_esql` | 내장 | 메모리 인덱스 외 일반 데이터 조회용 |
 | `platform.core.list_indices` | 내장 | 인덱스 목록 조회 |
 
@@ -140,12 +142,14 @@ Query → STEP 1: Recall + Blindspot (동시 호출)
 
 ### MCP Server (`mcp-server/`)
 
-4개 함수의 백엔드. FastMCP + Streamable HTTP + Python 3.12 + httpx.
+6개 함수의 백엔드. FastMCP + Streamable HTTP + Python 3.12 + httpx.
 
 **도구:**
-- `remember_memory(raw_text, entity, attribute, value, confidence, category)` — 경험 저장 (episodic + semantic + staging 3개 인덱스 + 감사 로그)
+- `remember_memory(raw_text, entity, attribute, value, confidence, category, external_refs="")` — 경험 저장 (episodic + semantic + staging 3개 인덱스 + 감사 로그). external_refs에 Jira/Runbook URL 첨부 가능.
 - `reflect_consolidate()` — 에피소드 통합 (reflected=false → 카테고리 집계 → 도메인 갱신)
 - `generate_blindspot_report()` — 사각지대 보고서 (VOID/SPARSE/DENSE/Stale)
+- `export_knowledge_base()` — 전체 지식 베이스 NDJSON 내보내기 (search_after 페이지네이션)
+- `import_knowledge_base(ndjson)` — NDJSON 가져오기 (semantic entity+attribute 중복 시 CONFLICT 탐지)
 - `sync_knowledge_domains()` — staging→lookup 동기화 (삭제→재생성→bulk). 스케줄러 전용, MCP 도구로 노출하지 않음.
 
 **환경변수:**
@@ -166,7 +170,7 @@ Query → STEP 1: Recall + Blindspot (동시 호출)
 - `sync` thread: 독립 sync (SYNC_INTERVAL) — remember 후 즉각 반영 목적
 - `blindspot` thread: 사각지대 보고서 (BLINDSPOT_INTERVAL)
 
-**감사 로그:** `remember_memory` 호출 시 `memory-access-log`에 자동 기록 (action=remember).
+**감사 로그:** `remember_memory`, `export_knowledge_base`, `import_knowledge_base` 호출 시 `memory-access-log`에 자동 기록.
 
 ## Known Issues & Pitfalls
 
@@ -235,7 +239,7 @@ curl -X PUT "${KIBANA_URL}/api/actions/connector/<connector_id>" \
 
 ```bash
 export $(cat .env | xargs)
-bash test/e2e-test.sh     # 4 시나리오: Grade A+CONFLICT, Grade D+Blindspot, Remember, Grade 상승
+bash test/e2e-test.sh     # 7 시나리오: Grade A+CONFLICT, Grade D, Remember, Reflect, Blindspot, Grade 상승, Export/Import
 bash setup/07-verify.sh   # A2A 메타데이터 + Converse API + 에이전트 등록 확인
 ```
 
@@ -267,20 +271,20 @@ hippocampus/
 ├── tools/*.json                   # 4 ESQL 도구 정의 (recall, contradict, blindspot-density, blindspot-targeted)
 ├── workflows/*.yaml               # 3 워크플로우 (참조용, 미사용)
 ├── mcp-server/
-│   ├── server.py                  # FastMCP 서버 (3 tools + scheduler)
+│   ├── server.py                  # FastMCP 서버 (5 tools + scheduler)
 │   ├── Dockerfile                 # Python 3.12-slim
 │   └── requirements.txt           # fastmcp, httpx, uvicorn
 ├── setup/
 │   ├── 01-indices.sh              # ES indices 생성
 │   ├── 02-ilm-policies.sh         # ILM policies
 │   ├── 03-tools.sh                # ESQL 도구 4개 등록
-│   ├── 04-mcp-tools.sh            # MCP 커넥터 + 도구 3개 등록
+│   ├── 04-mcp-tools.sh            # MCP 커넥터 + 도구 5개 등록
 │   ├── 04-workflows.sh            # Workflow 등록 (미사용)
 │   ├── 05-agent.sh                # 에이전트 등록
 │   ├── 06-seed-data.sh            # Seed data
 │   ├── 07-verify.sh               # 검증 스크립트
 │   └── 08-sync-domains.sh         # 도메인 동기화
-├── test/e2e-test.sh               # E2E 4개 시나리오
+├── test/e2e-test.sh               # E2E 7개 시나리오
 ├── dashboard/*.ndjson             # Kibana 대시보드
 ├── seed/*.ndjson                  # Seed data (synthetic)
 ├── demo/demo-script.md            # 데모 스크립트

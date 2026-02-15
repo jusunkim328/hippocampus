@@ -106,27 +106,29 @@ The Trust Gate assigns a grade to every response based on organizational experie
 | `hippocampus-episodic` | Hot (0d) → Warm (7d) → Cold (30d) → Delete (90d) |
 | `hippocampus-accesslog` | Hot (0d) → Delete (30d) |
 
-### Agent Builder Tools (7)
+### Agent Builder Tools (9)
 
 | Tool | Type | Function |
 |------|------|----------|
-| `hippocampus-recall` | ES\|QL | Semantic search (ELSER v2) across episodic & semantic memories, top 5 results |
+| `hippocampus-recall` | ES\|QL | Semantic search (ELSER v2) across episodic & semantic memories, top 5 results with external_refs |
 | `hippocampus-contradict` | ES\|QL | Detect conflicting values for the same entity+attribute (Knowledge Drift) |
 | `hippocampus-blindspot-density` | ES\|QL | Scan all domains for knowledge density (VOID/SPARSE/DENSE) |
 | `hippocampus-blindspot-targeted` | ES\|QL | Assess knowledge density for a specific domain |
-| `hippocampus-remember` | MCP | Store new experience via external MCP server → 3 ES indices |
+| `hippocampus-remember` | MCP | Store new experience with optional external_refs (Jira/Runbook URLs) → 3 ES indices |
 | `hippocampus-reflect` | MCP | Consolidate episodic memories into semantic patterns + update domain density |
 | `hippocampus-blindspot-report` | MCP | Generate full blindspot report (VOID/SPARSE/DENSE/Stale classification) |
+| `hippocampus-export` | MCP | Export entire knowledge base as NDJSON for backup or team sharing |
+| `hippocampus-import` | MCP | Import NDJSON knowledge base with semantic duplicate/CONFLICT detection |
 
 ### MCP Server (`mcp-server/`)
 
-The MCP tools (`hippocampus-remember`, `hippocampus-reflect`, `hippocampus-blindspot-report`) use an external MCP server instead of Elastic Workflows (see [Why MCP?](#why-mcp-instead-of-elastic-workflows) below).
+The MCP tools (`hippocampus-remember`, `hippocampus-reflect`, `hippocampus-blindspot-report`, `hippocampus-export`, `hippocampus-import`) use an external MCP server instead of Elastic Workflows (see [Why MCP?](#why-mcp-instead-of-elastic-workflows) below).
 
 | Component | Detail |
 |-----------|--------|
 | Stack | FastMCP, Streamable HTTP, Python 3.12, httpx |
-| Tools | `remember_memory`, `reflect_consolidate`, `generate_blindspot_report` |
-| Indices | `episodic-memories`, `semantic-memories`, `knowledge-domains-staging`, `memory-access-log` |
+| Tools | `remember_memory`, `reflect_consolidate`, `generate_blindspot_report`, `export_knowledge_base`, `import_knowledge_base` |
+| Indices | `episodic-memories`, `semantic-memories`, `knowledge-domains-staging`, `knowledge-domains`, `memory-access-log` |
 | Scheduler | Optional background scheduler for periodic reflect (6h) and blindspot (24h) |
 | Deployment | Docker Compose → HTTPS endpoint required for Elastic Cloud |
 
@@ -171,7 +173,7 @@ docker compose up -d --build
 bash setup/01-indices.sh         # 5 ES indices (ES API)
 bash setup/02-ilm-policies.sh    # 2 ILM policies (ES API)
 bash setup/03-tools.sh           # 4 ES|QL Agent Builder tools (Kibana API)
-bash setup/04-mcp-tools.sh       # MCP connector + 3 MCP tools (Kibana API)
+bash setup/04-mcp-tools.sh       # MCP connector + 5 MCP tools (Kibana API)
 bash setup/05-agent.sh           # 1 agent (Kibana API)
 bash setup/06-seed-data.sh       # Seed data via _bulk (ES API)
 
@@ -221,7 +223,7 @@ curl -s -X POST "${KIBANA_URL}/api/agent_builder/a2a/hippocampus" \
 
 ### MCP Server
 
-Backend for the 3 MCP tools (`remember`, `reflect`, `blindspot-report`). Deployed via Docker Compose.
+Backend for the 5 MCP tools (`remember`, `reflect`, `blindspot-report`, `export`, `import`). Deployed via Docker Compose.
 
 ```bash
 # Start MCP server
@@ -246,7 +248,7 @@ Run the full Trust Gate test suite via Converse API (~2-5 seconds total, vs 25-4
 
 ```bash
 export $(cat .env | xargs)
-bash test/e2e-test.sh     # 4 scenarios: Grade A+CONFLICT, Grade D+Blindspot, Remember, Grade升
+bash test/e2e-test.sh     # 7 scenarios: Grade A+CONFLICT, Grade D, Remember, Reflect, Blindspot, Grade升, Export/Import
 bash setup/07-verify.sh   # A2A metadata + Converse API + Agent registration check
 ```
 

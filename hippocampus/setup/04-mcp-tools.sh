@@ -2,10 +2,12 @@
 # ──────────────────────────────────────────────────────────────────
 # 04-mcp-tools.sh
 #
-# MCP 기반 도구 3개를 등록합니다:
+# MCP 기반 도구 5개를 등록합니다:
 #   - hippocampus-remember: 경험 저장
 #   - hippocampus-reflect: 에피소드 통합
 #   - hippocampus-blindspot-report: 사각지대 보고서
+#   - hippocampus-export: 지식 베이스 NDJSON 내보내기
+#   - hippocampus-import: 지식 베이스 NDJSON 가져오기
 #
 # 배경: Elastic Workflows (Technical Preview) 실행 엔진이 동작하지 않아
 #       workflow 타입 → mcp 타입으로 전환.
@@ -33,7 +35,7 @@ echo "MCP Server: ${MCP_SERVER_URL}"
 echo ""
 
 # ─── Step 1: 기존 MCP 도구 삭제 (있으면) ───
-for tool_id in hippocampus-remember hippocampus-reflect hippocampus-blindspot-report; do
+for tool_id in hippocampus-remember hippocampus-reflect hippocampus-blindspot-report hippocampus-export hippocampus-import; do
   echo -n "Removing old tool ${tool_id} (if exists) ... "
   old_http=$(curl -s -o /dev/null -w "%{http_code}" \
     -X DELETE "${KIBANA_URL}/api/agent_builder/tools/${tool_id}" \
@@ -160,10 +162,22 @@ _TOOL_NAME="generate_blindspot_report" \
 _TOOL_DESC="전체 지식 도메인의 사각지대 보고서를 생성합니다. 현황 파악이 필요하거나 사용자가 사각지대 분석을 요청할 때 사용합니다. VOID/SPARSE/DENSE/Stale 분류로 도메인별 지식 밀도를 보고합니다." \
   register_tool "hippocampus-blindspot-report" "generate_blindspot_report" ""
 
+_TOOL_ID="hippocampus-export" \
+_TOOL_NAME="export_knowledge_base" \
+_TOOL_DESC="조직의 전체 지식 베이스를 NDJSON 형식으로 내보냅니다. 백업이나 팀 간 지식 공유에 사용합니다. episodic/semantic/domain 문서를 _type 태그 포함 NDJSON으로 반환합니다." \
+  register_tool "hippocampus-export" "export_knowledge_base" ""
+
+_TOOL_ID="hippocampus-import" \
+_TOOL_NAME="import_knowledge_base" \
+_TOOL_DESC="NDJSON 형식의 지식 베이스를 가져옵니다. export_knowledge_base로 내보낸 데이터를 다른 환경에 복원하거나 팀 지식을 병합할 때 사용합니다. semantic 중복 시 CONFLICT로 표시합니다." \
+  register_tool "hippocampus-import" "import_knowledge_base" ""
+
 echo ""
-echo "Done! 3개 MCP 도구 등록 완료."
+echo "Done! 5개 MCP 도구 등록 완료."
 echo "  Connector: ${CONNECTOR_ID} → ${MCP_SERVER_URL}"
 echo "  Tools:"
 echo "    - hippocampus-remember        (remember_memory)"
 echo "    - hippocampus-reflect         (reflect_consolidate)"
 echo "    - hippocampus-blindspot-report (generate_blindspot_report)"
+echo "    - hippocampus-export          (export_knowledge_base)"
+echo "    - hippocampus-import          (import_knowledge_base)"

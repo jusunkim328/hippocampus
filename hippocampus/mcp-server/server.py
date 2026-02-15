@@ -169,6 +169,7 @@ async def remember_memory(
     value: str,
     confidence: str,
     category: str,
+    external_refs: str = "",
 ) -> str:
     """새로운 경험을 조직 지식으로 저장합니다.
 
@@ -182,6 +183,7 @@ async def remember_memory(
         value: 속성 값
         confidence: 신뢰도 (0.0~1.0)
         category: 카테고리 (예: database, kubernetes)
+        external_refs: 외부 참조 URL (쉼표 구분). 예: "https://jira.example.com/ISSUE-123, https://wiki.example.com/runbook"
     """
     now = datetime.now(timezone.utc).isoformat()
     results = {}
@@ -191,9 +193,12 @@ async def remember_memory(
     attribute = attribute.strip().lower()
     category = category.strip().lower()
 
+    # external_refs 파싱 — 쉼표 구분 URL → 리스트
+    refs_list = [r.strip() for r in external_refs.split(",") if r.strip()] if external_refs else []
+
     # 1) episodic-memories — 원본 경험 기록
     try:
-        r = await _index_document("episodic-memories", {
+        ep_doc = {
             "raw_text": raw_text,
             "content": raw_text,
             "timestamp": now,
@@ -201,7 +206,10 @@ async def remember_memory(
             "category": category,
             "source_type": "conversation",
             "reflected": False,
-        })
+        }
+        if refs_list:
+            ep_doc["external_refs"] = refs_list
+        r = await _index_document("episodic-memories", ep_doc)
         results["episodic"] = {"status": "ok", "id": r.get("_id")}
     except Exception as e:
         logger.error("episodic-memories write failed: %s", e)
@@ -209,7 +217,7 @@ async def remember_memory(
 
     # 2) semantic-memories — SPO 트리플
     try:
-        r = await _index_document("semantic-memories", {
+        sem_doc = {
             "content": f"{entity} {attribute} {value}",
             "entity": entity,
             "attribute": attribute,
@@ -219,7 +227,10 @@ async def remember_memory(
             "first_observed": now,
             "last_updated": now,
             "update_count": 1,
-        })
+        }
+        if refs_list:
+            sem_doc["external_refs"] = refs_list
+        r = await _index_document("semantic-memories", sem_doc)
         results["semantic"] = {"status": "ok", "id": r.get("_id")}
     except Exception as e:
         logger.error("semantic-memories write failed: %s", e)
@@ -533,6 +544,244 @@ async def generate_blindspot_report() -> str:
     return json.dumps({
         "summary": summary,
         "report": report,
+    }, ensure_ascii=False)
+
+
+# ─── MCP 도구 4: export_knowledge_base ────────────────────────
+
+@mcp.tool()
+async def export_knowledge_base() -> str:
+    """조직의 전체 지식 베이스를 NDJSON 형식으로 내보냅니다.
+
+    episodic-memories, semantic-memories, knowledge-domains의 모든 문서를
+    _type 태그가 포함된 NDJSON으로 변환하여 반환합니다.
+    Git 커밋으로 팀과 공유하거나 백업에 사용할 수 있습니다.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    lines: list[str] = []
+    counts = {"episodic": 0, "semantic": 0, "domain": 0}
+
+    async def _scan_index(index: str, source_fields: list[str], doc_type: str):
+        """search_after 페이지네이션으로 전체 문서 스캔."""
+        search_after = None
+        while True:
+            body: dict = {
+                "query": {"match_all": {}},
+                "size": 100,
+                "sort": [{"_doc": "asc"}],
+                "_source": source_fields,
+            }
+            if search_after:
+                body["search_after"] = search_after
+
+            resp = await _es_search(index, body)
+            hits = resp.get("hits", {}).get("hits", [])
+            if not hits:
+                break
+
+            for hit in hits:
+                doc = hit["_source"]
+                doc["_type"] = doc_type
+                lines.append(json.dumps(doc, ensure_ascii=False))
+                counts[doc_type] += 1
+                search_after = hit["sort"]
+
+    # 1) episodic-memories (content 제외 — semantic_text, import 시 재생성)
+    try:
+        await _scan_index(
+            "episodic-memories",
+            ["raw_text", "category", "importance", "timestamp", "source_type", "external_refs"],
+            "episodic",
+        )
+    except Exception as e:
+        logger.error("export: episodic scan failed: %s", e)
+
+    # 2) semantic-memories (content 제외)
+    try:
+        await _scan_index(
+            "semantic-memories",
+            ["entity", "attribute", "value", "confidence", "category",
+             "first_observed", "last_updated", "update_count", "external_refs"],
+            "semantic",
+        )
+    except Exception as e:
+        logger.error("export: semantic scan failed: %s", e)
+
+    # 3) knowledge-domains (lookup)
+    try:
+        await _scan_index(
+            "knowledge-domains",
+            ["domain", "memory_count", "avg_confidence", "density_score", "status", "last_updated"],
+            "domain",
+        )
+    except Exception as e:
+        logger.error("export: domain scan failed: %s", e)
+
+    ndjson = "\n".join(lines)
+    total = sum(counts.values())
+    summary = (
+        f"Export 완료: episodic {counts['episodic']}건, "
+        f"semantic {counts['semantic']}건, "
+        f"domain {counts['domain']}건 (총 {total}건)"
+    )
+
+    # 감사 로그
+    try:
+        await _index_document("memory-access-log", {
+            "timestamp": now,
+            "action": "export",
+            "details": summary,
+        })
+    except Exception as e:
+        logger.error("export: audit log failed: %s", e)
+
+    return json.dumps({
+        "summary": summary, "ndjson": ndjson, "counts": counts,
+    }, ensure_ascii=False)
+
+
+# ─── MCP 도구 5: import_knowledge_base ────────────────────────
+
+@mcp.tool()
+async def import_knowledge_base(ndjson: str) -> str:
+    """NDJSON 형식의 지식 베이스를 가져옵니다.
+
+    export_knowledge_base로 내보낸 NDJSON을 파싱하여
+    episodic-memories, semantic-memories, knowledge-domains-staging에 저장합니다.
+    semantic 문서의 entity+attribute가 기존과 중복되면 CONFLICT로 표시합니다.
+
+    Args:
+        ndjson: NDJSON 형식 문자열. 각 줄은 _type 필드를 포함한 JSON 객체.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    imported = {"episodic": 0, "semantic": 0, "domain": 0}
+    conflicts: list[dict] = []
+    errors: list[str] = []
+
+    # 줄별 파싱 및 분류
+    docs: dict[str, list[dict]] = {"episodic": [], "semantic": [], "domain": []}
+    for i, line in enumerate(ndjson.strip().split("\n")):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            doc = json.loads(line)
+            doc_type = doc.pop("_type", None)
+            if doc_type in docs:
+                docs[doc_type].append(doc)
+            else:
+                errors.append(f"line {i+1}: unknown _type '{doc_type}'")
+        except json.JSONDecodeError as e:
+            errors.append(f"line {i+1}: JSON parse error: {e}")
+
+    # 1) episodic-memories — bulk insert
+    if docs["episodic"]:
+        bulk_lines = []
+        for doc in docs["episodic"]:
+            doc["content"] = doc.get("raw_text", "")  # semantic_text 재생성용
+            doc.setdefault("reflected", False)
+            doc.setdefault("timestamp", now)
+            bulk_lines.append(json.dumps({"index": {"_index": "episodic-memories"}}))
+            bulk_lines.append(json.dumps(doc, ensure_ascii=False))
+        try:
+            resp = await _es_bulk("\n".join(bulk_lines) + "\n")
+            imported["episodic"] = sum(
+                1 for item in resp.get("items", [])
+                if item.get("index", {}).get("status") in (200, 201)
+            )
+        except Exception as e:
+            errors.append(f"episodic bulk: {e}")
+
+    # 2) semantic-memories — 중복 검사 후 bulk insert
+    if docs["semantic"]:
+        bulk_lines = []
+        for doc in docs["semantic"]:
+            entity = doc.get("entity", "").strip().lower()
+            attribute = doc.get("attribute", "").strip().lower()
+            value = doc.get("value", "")
+            doc["entity"] = entity
+            doc["attribute"] = attribute
+            doc["content"] = f"{entity} {attribute} {value}"  # semantic_text 재생성용
+            doc.setdefault("last_updated", now)
+
+            # 중복 검사 (entity+attribute)
+            try:
+                dup_resp = await _es_search("semantic-memories", {
+                    "query": {"bool": {"must": [
+                        {"term": {"entity": entity}},
+                        {"term": {"attribute": attribute}},
+                    ]}},
+                    "size": 1,
+                    "_source": ["value", "last_updated"],
+                })
+                dup_hits = dup_resp.get("hits", {}).get("hits", [])
+                if dup_hits:
+                    existing_value = dup_hits[0]["_source"].get("value", "")
+                    if existing_value != value:
+                        conflicts.append({
+                            "entity": entity,
+                            "attribute": attribute,
+                            "existing_value": existing_value,
+                            "imported_value": value,
+                        })
+            except Exception:
+                pass  # 중복 검사 실패해도 저장은 진행
+
+            bulk_lines.append(json.dumps({"index": {"_index": "semantic-memories"}}))
+            bulk_lines.append(json.dumps(doc, ensure_ascii=False))
+
+        try:
+            resp = await _es_bulk("\n".join(bulk_lines) + "\n")
+            imported["semantic"] = sum(
+                1 for item in resp.get("items", [])
+                if item.get("index", {}).get("status") in (200, 201)
+            )
+        except Exception as e:
+            errors.append(f"semantic bulk: {e}")
+
+    # 3) knowledge-domains-staging — bulk insert
+    if docs["domain"]:
+        bulk_lines = []
+        for doc in docs["domain"]:
+            doc.setdefault("last_updated", now)
+            bulk_lines.append(json.dumps({"index": {"_index": "knowledge-domains-staging"}}))
+            bulk_lines.append(json.dumps(doc, ensure_ascii=False))
+        try:
+            resp = await _es_bulk("\n".join(bulk_lines) + "\n")
+            imported["domain"] = sum(
+                1 for item in resp.get("items", [])
+                if item.get("index", {}).get("status") in (200, 201)
+            )
+        except Exception as e:
+            errors.append(f"domain bulk: {e}")
+
+    total = sum(imported.values())
+    summary = (
+        f"Import 완료: {total}건 "
+        f"(episodic {imported['episodic']}, "
+        f"semantic {imported['semantic']}, "
+        f"domain {imported['domain']})"
+    )
+    if conflicts:
+        summary += f", CONFLICT {len(conflicts)}건"
+    if errors:
+        summary += f", 오류 {len(errors)}건"
+
+    # 감사 로그
+    try:
+        await _index_document("memory-access-log", {
+            "timestamp": now,
+            "action": "import",
+            "details": summary,
+        })
+    except Exception as e:
+        logger.error("import: audit log failed: %s", e)
+
+    return json.dumps({
+        "summary": summary,
+        "imported": imported,
+        "conflicts": conflicts,
+        "errors": errors,
     }, ensure_ascii=False)
 
 
