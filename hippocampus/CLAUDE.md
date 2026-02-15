@@ -38,10 +38,18 @@ Hippocampus는 Elasticsearch Agent Builder 기반의 **AI Agent Guardrails** 시
 # Prerequisites: Elastic Cloud Hosted (ES 9.x), ELSER v2 deployed, Agent Builder enabled
 # .env.example → .env 복사 후 ES_URL, ES_API_KEY, KIBANA_URL, MCP_SERVER_URL 설정
 
-# 1. MCP 서버 배포 (Docker Compose)
-docker compose up -d --build
-# ngrok/cloudflared로 터널링 후 HTTPS URL을 .env의 MCP_SERVER_URL에 설정
-# 스케줄러 활성화: SCHEDULER_ENABLED=true docker compose up -d
+# 1. MCP 서버 배포 (Cloud Run — 고정 HTTPS URL)
+cd mcp-server
+docker build --platform linux/amd64 -t asia-northeast3-docker.pkg.dev/elastic-487512/hippocampus/mcp-server:latest .
+docker push asia-northeast3-docker.pkg.dev/elastic-487512/hippocampus/mcp-server:latest
+gcloud run deploy hippocampus-mcp \
+  --image asia-northeast3-docker.pkg.dev/elastic-487512/hippocampus/mcp-server:latest \
+  --region asia-northeast3 --project elastic-487512 \
+  --allow-unauthenticated --memory 256Mi --cpu 1 --max-instances 3 --min-instances 0 \
+  --set-secrets="ES_URL=hippocampus-es-url:latest,ES_API_KEY=hippocampus-es-api-key:latest" \
+  --set-env-vars="SCHEDULER_ENABLED=false"
+# Cloud Run URL (고정): https://hippocampus-mcp-1096006807994.asia-northeast3.run.app
+# 스케줄러: Cloud Scheduler 3개 job이 대체 (reflect/blindspot/sync)
 
 # 2. 순서대로 실행 (각 스크립트는 이전 단계에 의존)
 bash setup/01-indices.sh         # 5 ES indices (ES API)
@@ -142,7 +150,7 @@ Query → STEP 1: Recall + Blindspot (동시 호출)
 
 ### MCP Server (`mcp-server/`)
 
-6개 함수의 백엔드. FastMCP + Streamable HTTP + Python 3.12 + httpx.
+6개 MCP 도구의 백엔드. FastMCP + Streamable HTTP + Python 3.12 + httpx.
 
 **도구:**
 - `remember_memory(raw_text, entity, attribute, value, confidence, category, external_refs="")` — 경험 저장 (episodic + semantic + staging 3개 인덱스 + 감사 로그). external_refs에 Jira/Runbook URL 첨부 가능.
@@ -150,7 +158,7 @@ Query → STEP 1: Recall + Blindspot (동시 호출)
 - `generate_blindspot_report()` — 사각지대 보고서 (VOID/SPARSE/DENSE/Stale)
 - `export_knowledge_base()` — 전체 지식 베이스 NDJSON 내보내기 (search_after 페이지네이션)
 - `import_knowledge_base(ndjson)` — NDJSON 가져오기 (semantic entity+attribute 중복 시 CONFLICT 탐지)
-- `sync_knowledge_domains()` — staging→lookup 동기화 (삭제→재생성→bulk). 스케줄러 전용, MCP 도구로 노출하지 않음.
+- `sync_knowledge_domains()` — staging→lookup 동기화 (삭제→재생성→bulk). Cloud Scheduler 전용.
 
 **환경변수:**
 | 변수 | 기본값 | 설명 |
@@ -158,17 +166,29 @@ Query → STEP 1: Recall + Blindspot (동시 호출)
 | `ES_URL` | (필수) | Elasticsearch URL |
 | `ES_API_KEY` | (필수) | API Key |
 | `PORT` | `8080` | 서버 포트 |
-| `SCHEDULER_ENABLED` | `false` | 백그라운드 스케줄러 활성화 |
-| `REFLECT_INTERVAL_SECONDS` | `21600` (6h) | reflect 주기 |
-| `BLINDSPOT_INTERVAL_SECONDS` | `86400` (24h) | blindspot 주기 |
-| `SYNC_INTERVAL_SECONDS` | `3600` (1h) | knowledge-domains 동기화 주기 |
+| `SCHEDULER_ENABLED` | `false` | 백그라운드 스케줄러 활성화 (Cloud Run에서는 false) |
+| `REFLECT_INTERVAL_SECONDS` | `21600` (6h) | reflect 주기 (로컬 전용) |
+| `BLINDSPOT_INTERVAL_SECONDS` | `86400` (24h) | blindspot 주기 (로컬 전용) |
+| `SYNC_INTERVAL_SECONDS` | `3600` (1h) | knowledge-domains 동기화 주기 (로컬 전용) |
+| `MCP_AUTH_TOKEN` | (선택) | Bearer 토큰 인증. **주의: Kibana `.mcp` 커넥터가 Authorization 헤더를 전달하지 않으므로, Cloud Run 프로덕션에서는 사용 불가** |
 
-**배포:** `docker compose up -d --build` → ngrok/cloudflared로 HTTPS 터널링. `.mcp` Kibana 커넥터가 `MCP_SERVER_URL`로 연결.
+**배포 (Cloud Run):**
+- GCP 프로젝트: `elastic-487512`, 리전: `asia-northeast3`
+- Cloud Run URL: `https://hippocampus-mcp-1096006807994.asia-northeast3.run.app`
+- Secrets: Secret Manager (`hippocampus-es-url`, `hippocampus-es-api-key`) — MCP_AUTH_TOKEN은 커넥터 비호환으로 제거
+- `.mcp` Kibana 커넥터가 Cloud Run URL로 연결 (커넥터 ID: `3d77e20d-e02e-42f9-b32a-a5a17a6ced77`)
 
-**스케줄러:** 3개 daemon thread + 각자 독립 asyncio event loop. `SCHEDULER_ENABLED=true`로 활성화.
-- `reflect+sync` thread: reflect 실행 후 자동으로 sync 체이닝 (REFLECT_INTERVAL)
-- `sync` thread: 독립 sync (SYNC_INTERVAL) — remember 후 즉각 반영 목적
-- `blindspot` thread: 사각지대 보고서 (BLINDSPOT_INTERVAL)
+**스케줄러 (Cloud Scheduler — Cloud Run에서 daemon thread 대신 사용):**
+| Job | 스케줄 (KST) | 도구 |
+|-----|-------------|------|
+| `hippocampus-reflect` | `0 */6 * * *` (6시간) | `reflect_consolidate` |
+| `hippocampus-blindspot` | `0 4 * * *` (매일 4시) | `generate_blindspot_report` |
+| `hippocampus-sync` | `0 * * * *` (매시간) | `sync_knowledge_domains` |
+
+Cloud Scheduler 호출 시 `Accept: application/json` + `Content-Type: application/json` 헤더 필수. (Authorization 헤더는 Cloud Scheduler에 설정되어 있으나, 서버에서 MCP_AUTH_TOKEN 미설정으로 무시됨)
+
+**로컬 개발 (Docker Compose):**
+`SCHEDULER_ENABLED=true docker compose up -d` — 로컬에서는 daemon thread 스케줄러 사용, auth 없음.
 
 **감사 로그:** `remember_memory`, `export_knowledge_base`, `import_knowledge_base` 호출 시 `memory-access-log`에 자동 기록.
 
@@ -203,24 +223,24 @@ ES 9.3.0 Technical Preview에서 등록은 성공하지만 실행이 즉시 실�
 3. 다시 에이전트 선택 → "Hippocampus Trust Gate" 클릭
 ```
 
-### ngrok 터널 재시작 시 커넥터 URL 갱신 필요
+### Kibana `.mcp` 커넥터 인증 비호환
 
-ngrok free tier는 재시작마다 URL이 바뀜. `.mcp` Kibana 커넥터의 `serverUrl`을 갱신해야 MCP 도구가 동작:
+Kibana `.mcp` 커넥터는 `secrets.headers`에 설정한 `Authorization` 헤더를 MCP 서버로 전달하지 않음. 따라서 앱 레벨 Bearer 토큰 인증이 Kibana Agent Builder 연동 시 작동하지 않음. Cloud Run 프로덕션에서는 `MCP_AUTH_TOKEN` 환경변수를 설정하지 않고 `--allow-unauthenticated`로 운영.
+
+### Cloud Run 재배포 절차
+
+코드 변경 후 Cloud Run 재배포:
 
 ```bash
-# 커넥터 ID 조회
-curl -s "${KIBANA_URL}/api/actions/connectors" \
-  -H "Authorization: ApiKey ${ES_API_KEY}" -H "kbn-xsrf: true" | python3 -c "
-import sys,json
-for c in json.load(sys.stdin):
-  if c.get('connector_type_id')=='.mcp': print(c['id'], c['name'])"
-
-# URL 갱신 (connector_id를 위에서 조회한 값으로 교체)
-curl -X PUT "${KIBANA_URL}/api/actions/connector/<connector_id>" \
-  -H "Authorization: ApiKey ${ES_API_KEY}" -H "kbn-xsrf: true" \
-  -H "x-elastic-internal-origin: Kibana" -H "Content-Type: application/json" \
-  -d '{"name":".mcp","config":{"serverUrl":"https://NEW-URL.ngrok-free.dev/mcp"},"secrets":{}}'
+cd mcp-server
+docker build --platform linux/amd64 -t asia-northeast3-docker.pkg.dev/elastic-487512/hippocampus/mcp-server:latest .
+docker push asia-northeast3-docker.pkg.dev/elastic-487512/hippocampus/mcp-server:latest
+gcloud run deploy hippocampus-mcp \
+  --image asia-northeast3-docker.pkg.dev/elastic-487512/hippocampus/mcp-server:latest \
+  --region asia-northeast3 --project elastic-487512
 ```
+
+> **참고**: ngrok 의존성은 Cloud Run 이관으로 제거됨. Cloud Run URL은 고정이므로 커넥터 갱신 불필요.
 
 ### 9.x Dashboard NDJSON 포맷
 
@@ -239,21 +259,25 @@ curl -X PUT "${KIBANA_URL}/api/actions/connector/<connector_id>" \
 
 ```bash
 export $(cat .env | xargs)
-bash test/e2e-test.sh     # 7 시나리오: Grade A+CONFLICT, Grade D, Remember, Reflect, Blindspot, Grade 상승, Export/Import
+bash test/e2e-test.sh     # 10 시나리오: Grade A+CONFLICT, Grade D, Remember, Reflect, Blindspot, Grade 상승, Export/Import, MCP Health, External Refs, Import CONFLICT
 bash setup/07-verify.sh   # A2A 메타데이터 + Converse API + 에이전트 등록 확인
 ```
 
 ### MCP 서버 직접 테스트
 
 ```bash
+MCP_URL=https://hippocampus-mcp-1096006807994.asia-northeast3.run.app/mcp
+
+# tools/list
+curl -s -X POST "$MCP_URL" -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+
 # reflect
-curl -s -X POST http://localhost:8080/mcp \
-  -H "Content-Type: application/json" \
+curl -s -X POST "$MCP_URL" -H "Content-Type: application/json" -H "Accept: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"reflect_consolidate","arguments":{}}}'
 
 # blindspot report
-curl -s -X POST http://localhost:8080/mcp \
-  -H "Content-Type: application/json" \
+curl -s -X POST "$MCP_URL" -H "Content-Type: application/json" -H "Accept: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"generate_blindspot_report","arguments":{}}}'
 ```
 
@@ -271,7 +295,7 @@ hippocampus/
 ├── tools/*.json                   # 4 ESQL 도구 정의 (recall, contradict, blindspot-density, blindspot-targeted)
 ├── workflows/*.yaml               # 3 워크플로우 (참조용, 미사용)
 ├── mcp-server/
-│   ├── server.py                  # FastMCP 서버 (5 tools + scheduler)
+│   ├── server.py                  # FastMCP 서버 (6 tools + auth + scheduler)
 │   ├── Dockerfile                 # Python 3.12-slim
 │   └── requirements.txt           # fastmcp, httpx, uvicorn
 ├── setup/
@@ -284,7 +308,7 @@ hippocampus/
 │   ├── 06-seed-data.sh            # Seed data
 │   ├── 07-verify.sh               # 검증 스크립트
 │   └── 08-sync-domains.sh         # 도메인 동기화
-├── test/e2e-test.sh               # E2E 7개 시나리오
+├── test/e2e-test.sh               # E2E 10개 시나리오
 ├── dashboard/*.ndjson             # Kibana 대시보드
 ├── seed/*.ndjson                  # Seed data (synthetic)
 ├── demo/demo-script.md            # 데모 스크립트

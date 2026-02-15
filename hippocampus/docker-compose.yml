@@ -1,3 +1,7 @@
+# Local development only. Production uses Cloud Run:
+#   docker build --platform linux/amd64 -t asia-northeast3-docker.pkg.dev/elastic-487512/hippocampus/mcp-server:latest mcp-server/
+#   docker push asia-northeast3-docker.pkg.dev/elastic-487512/hippocampus/mcp-server:latest
+#   gcloud run deploy hippocampus-mcp --image ... --region asia-northeast3 --project elastic-487512
 services:
   mcp-server:
     build: ./mcp-server

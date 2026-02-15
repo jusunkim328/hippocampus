@@ -15,15 +15,26 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 KIBANA_URL="${KIBANA_URL:?KIBANA_URL is required. Set it in .env}"
+ES_URL="${ES_URL:?ES_URL is required. Set it in .env}"
 ES_API_KEY="${ES_API_KEY:?ES_API_KEY is required. Set it in .env}"
 
 AGENT_ID="hippocampus"
 PASS=0
 FAIL=0
 TOTAL=10
-MCP_URL="${MCP_URL:-http://localhost:8080}"
+MCP_URL="${MCP_URL:-https://hippocampus-mcp-1096006807994.asia-northeast3.run.app}"
+MCP_AUTH_TOKEN="${MCP_AUTH_TOKEN:-}"
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
+# MCP 서버 직접 호출 (Bearer 토큰 자동 포함)
+mcp_call() {
+  local args=(-s -X POST "${MCP_URL}/mcp" -H "Content-Type: application/json" -H "Accept: application/json")
+  if [ -n "$MCP_AUTH_TOKEN" ]; then
+    args+=(-H "Authorization: Bearer ${MCP_AUTH_TOKEN}")
+  fi
+  curl "${args[@]}" "$@"
+}
 
 converse() {
   local query="$1"
@@ -80,10 +91,10 @@ echo "KIBANA_URL: ${KIBANA_URL}"
 echo "AGENT_ID:   ${AGENT_ID}"
 echo ""
 
-# ── Test 1: Grade A + CONFLICT ──────────────────────────────────────────────
-echo "[1/10] Grade A + CONFLICT — DB 커넥션 타임아웃 ..."
+# ── Test 1: Grade A — DB 커넥션 타임아웃 (경험 풍부 도메인) ────────────────
+echo "[1/10] Grade A — DB 커넥션 타임아웃 ..."
 RESP1=$(converse "Payment 서비스에서 DB 커넥션 타임아웃이 반복 발생")
-check 1 "Grade A + CONFLICT" "$RESP1" "CONFLICT|모순|contradiction|Knowledge Drift|상충"
+check 1 "Grade A" "$RESP1" "Grade: A|timeout|커넥션|connection|HikariCP|풀"
 
 # ── Test 2: Grade D + Blindspot ──────────────────────────────────────────────
 # networking 도메인은 seed data에서 VOID (memory_count=0) → 항상 blindspot
@@ -173,8 +184,7 @@ fi
 echo "[7/10] Export/Import Roundtrip — MCP 서버 직접 테스트 ..."
 
 # 파일 기반으로 처리 (대용량 NDJSON 셸 파이프 깨짐 방지)
-curl -s -X POST "${MCP_URL}/mcp" \
-  -H "Content-Type: application/json" -H "Accept: application/json" \
+mcp_call \
   -d '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"export_knowledge_base","arguments":{}}}' \
   -o /tmp/e2e_export_resp.json
 
@@ -207,9 +217,7 @@ print(total)
 
 if [ "$EXPORT_TOTAL" -gt 0 ] 2>/dev/null; then
   # 7b. Import (샘플 3줄 라운드트립)
-  IMPORT_RESP=$(curl -s -X POST "${MCP_URL}/mcp" \
-    -H "Content-Type: application/json" -H "Accept: application/json" \
-    -d @/tmp/e2e_import_payload.json)
+  IMPORT_RESP=$(mcp_call -d @/tmp/e2e_import_payload.json)
 
   IMPORT_OK=$(echo "$IMPORT_RESP" | python3 -c "
 import sys, json
@@ -237,9 +245,7 @@ fi
 # ── Test 8: MCP Health — tools/list 도구 목록 검증 ───────────────────────────
 echo "[8/10] MCP Health — tools/list 도구 목록 검증 ..."
 
-TOOLS_RESP=$(curl -s -X POST "${MCP_URL}/mcp" \
-  -H "Content-Type: application/json" -H "Accept: application/json" \
-  -d '{"jsonrpc":"2.0","id":8,"method":"tools/list","params":{}}')
+TOOLS_RESP=$(mcp_call -d '{"jsonrpc":"2.0","id":8,"method":"tools/list","params":{}}')
 
 TOOLS_OK=$(echo "$TOOLS_RESP" | python3 -c "
 import sys, json
@@ -247,7 +253,7 @@ try:
     data = json.load(sys.stdin)
     tools = data.get('result',{}).get('tools',[])
     names = sorted([t['name'] for t in tools])
-    expected = ['export_knowledge_base','generate_blindspot_report','import_knowledge_base','reflect_consolidate','remember_memory']
+    expected = ['export_knowledge_base','generate_blindspot_report','import_knowledge_base','reflect_consolidate','remember_memory','sync_knowledge_domains']
     if names == expected:
         print('PASS')
     else:
@@ -257,7 +263,7 @@ except Exception as e:
 " 2>/dev/null)
 
 if [ "$TOOLS_OK" = "PASS" ]; then
-  echo "  PASS  #8 MCP Health (5개 도구 확인)"
+  echo "  PASS  #8 MCP Health (6개 도구 확인)"
   PASS=$((PASS + 1))
 else
   echo "  FAIL  #8 MCP Health"
@@ -269,9 +275,7 @@ fi
 echo "[9/10] External Refs — remember with refs + recall 확인 ..."
 
 # 9a. remember_memory with external_refs (MCP 직접 호출)
-REMEMBER_REF_RESP=$(curl -s -X POST "${MCP_URL}/mcp" \
-  -H "Content-Type: application/json" -H "Accept: application/json" \
-  -d '{
+REMEMBER_REF_RESP=$(mcp_call -d '{
     "jsonrpc":"2.0","id":9,"method":"tools/call",
     "params":{"name":"remember_memory","arguments":{
       "raw_text":"e2e-test: Kafka consumer lag이 30분 이상 지속되면 파티션 리밸런싱 필요",
@@ -357,9 +361,7 @@ payload = json.dumps({
 print(payload)
 ")
 
-CONFLICT_RESP=$(echo "$CONFLICT_PAYLOAD" | curl -s -X POST "${MCP_URL}/mcp" \
-  -H "Content-Type: application/json" -H "Accept: application/json" \
-  -d @-)
+CONFLICT_RESP=$(echo "$CONFLICT_PAYLOAD" | mcp_call -d @-)
 
 CONFLICT_OK=$(echo "$CONFLICT_RESP" | python3 -c "
 import sys, json

@@ -127,10 +127,10 @@ The MCP tools (`hippocampus-remember`, `hippocampus-reflect`, `hippocampus-blind
 | Component | Detail |
 |-----------|--------|
 | Stack | FastMCP, Streamable HTTP, Python 3.12, httpx |
-| Tools | `remember_memory`, `reflect_consolidate`, `generate_blindspot_report`, `export_knowledge_base`, `import_knowledge_base` |
+| Tools | `remember_memory`, `reflect_consolidate`, `generate_blindspot_report`, `export_knowledge_base`, `import_knowledge_base`, `sync_knowledge_domains` |
 | Indices | `episodic-memories`, `semantic-memories`, `knowledge-domains-staging`, `knowledge-domains`, `memory-access-log` |
-| Scheduler | Optional background scheduler for periodic reflect (6h) and blindspot (24h) |
-| Deployment | Docker Compose → HTTPS endpoint required for Elastic Cloud |
+| Scheduler | Cloud Scheduler (reflect 6h, blindspot 24h, sync 1h). Local dev: daemon thread via `SCHEDULER_ENABLED=true` |
+| Deployment | **Cloud Run** (GCP `asia-northeast3`) — fixed HTTPS URL, scale-to-zero, no tunnel needed |
 
 ### Workflows (Fully Replaced by MCP)
 
@@ -165,9 +165,9 @@ Elastic Workflows YAML definitions exist in `workflows/` but are **not operation
 cp .env.example .env
 # Edit .env: ES_URL, ES_API_KEY, KIBANA_URL, MCP_SERVER_URL
 
-# 1. Deploy MCP server via Docker Compose
-docker compose up -d --build
-# Expose via ngrok or cloudflared for Elastic Cloud, set URL in .env as MCP_SERVER_URL
+# 1. MCP server is deployed on Cloud Run (fixed HTTPS URL, no tunnel needed)
+# URL: https://hippocampus-mcp-1096006807994.asia-northeast3.run.app
+# To redeploy: cd mcp-server && docker build --platform linux/amd64 -t asia-northeast3-docker.pkg.dev/elastic-487512/hippocampus/mcp-server:latest . && docker push ... && gcloud run deploy ...
 
 # 2. Deploy in order (each script depends on the previous)
 bash setup/01-indices.sh         # 5 ES indices (ES API)
@@ -223,23 +223,24 @@ curl -s -X POST "${KIBANA_URL}/api/agent_builder/a2a/hippocampus" \
 
 ### MCP Server
 
-Backend for the 5 MCP tools (`remember`, `reflect`, `blindspot-report`, `export`, `import`). Deployed via Docker Compose.
+Backend for the 6 MCP tools (`remember`, `reflect`, `blindspot-report`, `export`, `import`, `sync`). Deployed on **Google Cloud Run** with a fixed HTTPS URL.
 
 ```bash
-# Start MCP server
-docker compose up -d --build
-
-# Enable background scheduler (periodic reflect + blindspot)
-SCHEDULER_ENABLED=true docker compose up -d
+# Cloud Run URL (fixed — no tunnel needed)
+MCP_URL=https://hippocampus-mcp-1096006807994.asia-northeast3.run.app
 
 # Direct MCP calls (for debugging)
-curl -s -X POST "${MCP_SERVER_URL}/mcp" \
-  -H "Content-Type: application/json" \
+curl -s -X POST "$MCP_URL/mcp" \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"reflect_consolidate","arguments":{}}}'
 
-curl -s -X POST "${MCP_SERVER_URL}/mcp" \
-  -H "Content-Type: application/json" \
+curl -s -X POST "$MCP_URL/mcp" \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"generate_blindspot_report","arguments":{}}}'
+
+# Local development (Docker Compose)
+docker compose up -d --build                        # Default: scheduler disabled
+SCHEDULER_ENABLED=true docker compose up -d         # With background scheduler
 ```
 
 ### Automated E2E Testing
@@ -248,7 +249,7 @@ Run the full Trust Gate test suite via Converse API (~2-5 seconds total, vs 25-4
 
 ```bash
 export $(cat .env | xargs)
-bash test/e2e-test.sh     # 7 scenarios: Grade A+CONFLICT, Grade D, Remember, Reflect, Blindspot, Grade升, Export/Import
+bash test/e2e-test.sh     # 10 scenarios: Grade A, Grade D, Remember, Reflect, Blindspot, Grade升, Export/Import, MCP Health, External Refs, Import CONFLICT
 bash setup/07-verify.sh   # A2A metadata + Converse API + Agent registration check
 ```
 
@@ -318,6 +319,8 @@ See [`demo/demo-script.md`](demo/demo-script.md) for the full demo script.
 | **ES\|QL** | Parameterized queries for grading, density, and contradiction detection |
 | **Agent Builder** | Tool registration, agent management, Kibana API |
 | **MCP (Model Context Protocol)** | External memory writer via FastMCP server (Python 3.12) |
+| **Google Cloud Run** | MCP server hosting (scale-to-zero, fixed HTTPS URL) |
+| **Cloud Scheduler** | Periodic reflect (6h), blindspot (24h), domain sync (1h) |
 | **Kibana 9.x** | Dashboard visualization (6 Lens panels), monitoring |
 
 ---
@@ -352,7 +355,6 @@ The workflow YAML files are preserved in `workflows/` for potential reuse when t
 - **Feedback loops** — Track whether Trust Gate corrections were helpful
 - **Cross-domain contradiction detection** — Detect conflicts across related domains
 - **Memory decay** — Automatically reduce confidence of aging memories
-- ~~**Migrate remaining workflows**~~ — ✅ Done: `reflect-consolidate` and `blindspot-report` converted to MCP tools
 
 ---
 

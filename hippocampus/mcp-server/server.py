@@ -3,10 +3,13 @@
 Elastic Workflows (Technical Preview) 실행 엔진이 동작하지 않아,
 MCP (Model Context Protocol) 서버로 대체 구현.
 
-MCP 도구 3개:
+MCP 도구 6개:
   - remember_memory: 새 경험 저장 (episodic + semantic + domain)
   - reflect_consolidate: 에피소드 → 시맨틱 통합 분석
   - generate_blindspot_report: 지식 사각지대 보고서
+  - export_knowledge_base: 지식 베이스 NDJSON 내보내기
+  - import_knowledge_base: 지식 베이스 NDJSON 가져오기 (CONFLICT 탐지)
+  - sync_knowledge_domains: staging → lookup 도메인 동기화
 
 Agent Builder의 `mcp` 타입 도구 → .mcp 커넥터 → 이 서버 → ES REST API
 """
@@ -803,11 +806,12 @@ KNOWLEDGE_DOMAINS_SCHEMA = {
 }
 
 
+@mcp.tool()
 async def sync_knowledge_domains() -> str:
     """knowledge-domains-staging → knowledge-domains (lookup) 동기화.
 
-    08-sync-domains.sh의 Python 구현.
     staging에서 도메인별 집계 → lookup 삭제 → 재생성 → bulk 투입.
+    Cloud Scheduler에서 주기적으로 호출합니다.
     """
     # 1. staging에서 도메인별 집계
     try:
@@ -946,7 +950,64 @@ def _run_scheduler():
     )
 
 
+MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN")
+CLOUD_RUN_URL = os.getenv("CLOUD_RUN_URL", "")
+
+
+def _verify_auth(auth_header: str) -> bool:
+    """Bearer 토큰 또는 Google OIDC ID Token을 검증."""
+    if not auth_header.startswith("Bearer "):
+        return False
+    token = auth_header[7:]
+
+    # 1) 정적 Bearer 토큰 일치
+    if MCP_AUTH_TOKEN and token == MCP_AUTH_TOKEN:
+        return True
+
+    # 2) Google OIDC ID Token 검증 (Cloud Scheduler용)
+    if CLOUD_RUN_URL:
+        try:
+            from google.oauth2 import id_token as google_id_token
+            from google.auth.transport import requests as google_requests
+            google_id_token.verify_oauth2_token(
+                token, google_requests.Request(), audience=CLOUD_RUN_URL,
+            )
+            return True
+        except Exception as e:
+            logger.warning("OIDC verification failed: %s", e)
+
+    return False
+
+
 if __name__ == "__main__":
     if SCHEDULER_ENABLED:
         _run_scheduler()
-    mcp.run(transport="streamable-http")
+
+    if MCP_AUTH_TOKEN or CLOUD_RUN_URL:
+        import uvicorn
+        from starlette.responses import JSONResponse as _JSONResp
+
+        inner_app = mcp.streamable_http_app()
+
+        async def auth_app(scope, receive, send):
+            if scope["type"] == "http":
+                headers = dict(scope.get("headers", []))
+                auth = headers.get(b"authorization", b"").decode()
+                if not _verify_auth(auth):
+                    resp = _JSONResp(
+                        {"jsonrpc": "2.0", "id": None,
+                         "error": {"code": -32000, "message": "Unauthorized"}},
+                        status_code=401,
+                    )
+                    await resp(scope, receive, send)
+                    return
+            await inner_app(scope, receive, send)
+
+        logger.info("Auth enabled — Bearer token or OIDC required")
+        uvicorn.run(
+            auth_app,
+            host="0.0.0.0",
+            port=int(os.getenv("PORT", "8080")),
+        )
+    else:
+        mcp.run(transport="streamable-http")
