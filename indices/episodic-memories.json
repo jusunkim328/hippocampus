@@ -1,0 +1,23 @@
+{
+  "settings": {
+    "index.lifecycle.name": "hippocampus-episodic"
+  },
+  "mappings": {
+    "_meta": {
+      "description": "Episodic memory index for DevOps teams. Stores raw conversation and experience records from incident response, troubleshooting, and configuration changes. The content field enables natural language semantic search. The category field classifies entries as incident/config-change/troubleshooting/knowledge-share etc."
+    },
+    "properties": {
+      "content":          { "type": "semantic_text", "inference_id": ".elser-2-elastic" },
+      "raw_text":         { "type": "text" },
+      "conversation_id":  { "type": "keyword" },
+      "timestamp":        { "type": "date" },
+      "importance":       { "type": "float" },
+      "access_count":     { "type": "integer", "null_value": 0 },
+      "last_accessed":    { "type": "date" },
+      "category":         { "type": "keyword" },
+      "source_type":      { "type": "keyword" },
+      "reflected":        { "type": "boolean", "null_value": false },
+      "external_refs":    { "type": "keyword" }
+    }
+  }
+}

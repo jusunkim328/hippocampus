@@ -1,0 +1,19 @@
+{
+  "id": "hippocampus-contradict",
+  "type": "esql",
+  "description": "Trust Gate STEP 3 tool. MUST call when Experience Grade is A. Input the key entity and attribute identified from recall results to check whether the attribute's value has changed over time (Knowledge Drift). When CONFLICT is detected, display '⚡ CONFLICT' label in the response and prefer the latest value.",
+  "tags": ["hippocampus", "contradict", "trust-gate"],
+  "configuration": {
+    "query": "FROM semantic-memories | WHERE entity == ?entity AND attribute == ?attribute | STATS value_count = COUNT_DISTINCT(value.keyword), values = VALUES(value.keyword), confidences = VALUES(confidence), dates = VALUES(last_updated), sources = VALUES(source_conversation_ids) | WHERE value_count > 1",
+    "params": {
+      "entity": {
+        "type": "keyword",
+        "description": "Entity name to search (e.g., payment-service)"
+      },
+      "attribute": {
+        "type": "keyword",
+        "description": "Attribute name to search (e.g., db-connection-pool-size)"
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# Local development only. Production uses Cloud Run:
+#   docker build --platform linux/amd64 -t your-region-docker.pkg.dev/your-gcp-project-id/hippocampus/mcp-server:latest mcp-server/
+#   docker push your-region-docker.pkg.dev/your-gcp-project-id/hippocampus/mcp-server:latest
+#   gcloud run deploy hippocampus-mcp --image ... --region your-region --project your-gcp-project-id
+services:
+  mcp-server:
+    build: ./mcp-server
+    container_name: hippocampus-mcp
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file: .env
+    environment:
+      - PORT=8080
+      - SCHEDULER_ENABLED=${SCHEDULER_ENABLED:-false}
+      - REFLECT_INTERVAL_SECONDS=${REFLECT_INTERVAL_SECONDS:-21600}
+      - BLINDSPOT_INTERVAL_SECONDS=${BLINDSPOT_INTERVAL_SECONDS:-86400}
+      - SYNC_INTERVAL_SECONDS=${SYNC_INTERVAL_SECONDS:-3600}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.create_connection(('localhost',8080),2); s.close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3

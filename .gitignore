@@ -1,6 +1,7 @@
+.env
 .DS_Store
+*.code-workspace
 
 # Playwright MCP test output
 .playwright-mcp/
-es.code-workspace
 .claude/

@@ -1,0 +1,10 @@
+{
+  "id": "hippocampus-blindspot-density",
+  "type": "esql",
+  "description": "Scan knowledge density across all domains. Identifies areas with insufficient experience (VOID/SPARSE) to reveal the agent's blindspots.",
+  "tags": ["hippocampus", "blindspot", "trust-gate"],
+  "configuration": {
+    "query": "FROM knowledge-domains | EVAL density = memory_count * avg_confidence, staleness_days = DATE_DIFF(\"day\", last_updated, NOW()), status = CASE(density < 1.0, \"VOID\", density < 5.0, \"SPARSE\", \"DENSE\") | SORT density ASC",
+    "params": {}
+  }
+}
