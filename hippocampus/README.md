@@ -106,7 +106,7 @@ The Trust Gate assigns a grade to every response based on organizational experie
 | `hippocampus-episodic` | Hot (0d) → Warm (7d) → Cold (30d) → Delete (90d) |
 | `hippocampus-accesslog` | Hot (0d) → Delete (30d) |
 
-### Agent Builder Tools (5)
+### Agent Builder Tools (7)
 
 | Tool | Type | Function |
 |------|------|----------|
@@ -115,27 +115,30 @@ The Trust Gate assigns a grade to every response based on organizational experie
 | `hippocampus-blindspot-density` | ES\|QL | Scan all domains for knowledge density (VOID/SPARSE/DENSE) |
 | `hippocampus-blindspot-targeted` | ES\|QL | Assess knowledge density for a specific domain |
 | `hippocampus-remember` | MCP | Store new experience via external MCP server → 3 ES indices |
+| `hippocampus-reflect` | MCP | Consolidate episodic memories into semantic patterns + update domain density |
+| `hippocampus-blindspot-report` | MCP | Generate full blindspot report (VOID/SPARSE/DENSE/Stale classification) |
 
 ### MCP Server (`mcp-server/`)
 
-The `hippocampus-remember` tool uses an external MCP server instead of Elastic Workflows (see [Why MCP?](#why-mcp-instead-of-elastic-workflows) below).
+The MCP tools (`hippocampus-remember`, `hippocampus-reflect`, `hippocampus-blindspot-report`) use an external MCP server instead of Elastic Workflows (see [Why MCP?](#why-mcp-instead-of-elastic-workflows) below).
 
 | Component | Detail |
 |-----------|--------|
 | Stack | FastMCP, Streamable HTTP, Python 3.12, httpx |
-| Tool | `remember_memory(raw_text, entity, attribute, value, confidence, category)` |
-| Writes to | `episodic-memories`, `semantic-memories`, `knowledge-domains` |
-| Deployment | Docker → HTTPS endpoint required |
+| Tools | `remember_memory`, `reflect_consolidate`, `generate_blindspot_report` |
+| Indices | `episodic-memories`, `semantic-memories`, `knowledge-domains-staging`, `memory-access-log` |
+| Scheduler | Optional background scheduler for periodic reflect (6h) and blindspot (24h) |
+| Deployment | Docker Compose → HTTPS endpoint required for Elastic Cloud |
 
-### Workflows (Not Operational)
+### Workflows (Fully Replaced by MCP)
 
-Elastic Workflows YAML definitions exist in `workflows/` but are **not operational** due to an execution engine bug in ES 9.x Technical Preview. See [Why MCP?](#why-mcp-instead-of-elastic-workflows) for details.
+Elastic Workflows YAML definitions exist in `workflows/` but are **not operational** due to an execution engine bug in ES 9.x Technical Preview. All 3 workflows have been replaced by MCP server tools. See [Why MCP?](#why-mcp-instead-of-elastic-workflows) for details.
 
-| Workflow | Trigger | Status |
-|----------|---------|--------|
-| `remember-memory` | Manual | **Replaced by MCP server** |
-| `reflect-consolidate` | Scheduled (6h) | Not operational |
-| `blindspot-report` | Scheduled (24h) | Not operational |
+| Workflow | MCP Replacement | Status |
+|----------|----------------|--------|
+| `remember-memory` | `hippocampus-remember` | **Replaced** |
+| `reflect-consolidate` | `hippocampus-reflect` | **Replaced** |
+| `blindspot-report` | `hippocampus-blindspot-report` | **Replaced** |
 
 ### Agent (1)
 
@@ -160,15 +163,15 @@ Elastic Workflows YAML definitions exist in `workflows/` but are **not operation
 cp .env.example .env
 # Edit .env: ES_URL, ES_API_KEY, KIBANA_URL, MCP_SERVER_URL
 
-# 1. Deploy MCP server (backend for hippocampus-remember tool)
-docker build -t hippocampus-mcp mcp-server/
-# Deploy to a platform with HTTPS support, set the URL in .env as MCP_SERVER_URL
+# 1. Deploy MCP server via Docker Compose
+docker compose up -d --build
+# Expose via ngrok or cloudflared for Elastic Cloud, set URL in .env as MCP_SERVER_URL
 
 # 2. Deploy in order (each script depends on the previous)
 bash setup/01-indices.sh         # 5 ES indices (ES API)
 bash setup/02-ilm-policies.sh    # 2 ILM policies (ES API)
 bash setup/03-tools.sh           # 4 ES|QL Agent Builder tools (Kibana API)
-bash setup/04-mcp-remember.sh    # MCP connector + remember tool (Kibana API)
+bash setup/04-mcp-tools.sh       # MCP connector + 3 MCP tools (Kibana API)
 bash setup/05-agent.sh           # 1 agent (Kibana API)
 bash setup/06-seed-data.sh       # Seed data via _bulk (ES API)
 
@@ -218,13 +221,23 @@ curl -s -X POST "${KIBANA_URL}/api/agent_builder/a2a/hippocampus" \
 
 ### MCP Server
 
-Backend for the `hippocampus-remember` tool. Stores new experiences via MCP protocol.
+Backend for the 3 MCP tools (`remember`, `reflect`, `blindspot-report`). Deployed via Docker Compose.
 
 ```bash
-# Direct MCP call (for debugging)
+# Start MCP server
+docker compose up -d --build
+
+# Enable background scheduler (periodic reflect + blindspot)
+SCHEDULER_ENABLED=true docker compose up -d
+
+# Direct MCP calls (for debugging)
 curl -s -X POST "${MCP_SERVER_URL}/mcp" \
   -H "Content-Type: application/json" \
-  -d '{"method": "tools/call", "params": {"name": "remember_memory", "arguments": {...}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"reflect_consolidate","arguments":{}}}'
+
+curl -s -X POST "${MCP_SERVER_URL}/mcp" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"generate_blindspot_report","arguments":{}}}'
 ```
 
 ### Automated E2E Testing
@@ -337,7 +350,7 @@ The workflow YAML files are preserved in `workflows/` for potential reuse when t
 - **Feedback loops** — Track whether Trust Gate corrections were helpful
 - **Cross-domain contradiction detection** — Detect conflicts across related domains
 - **Memory decay** — Automatically reduce confidence of aging memories
-- **Migrate remaining workflows** — Convert `reflect-consolidate` and `blindspot-report` to MCP tools or cron jobs
+- ~~**Migrate remaining workflows**~~ — ✅ Done: `reflect-consolidate` and `blindspot-report` converted to MCP tools
 
 ---
 

@@ -1,0 +1,18 @@
+services:
+  mcp-server:
+    build: ./mcp-server
+    container_name: hippocampus-mcp
+    ports:
+      - "${PORT:-8080}:8080"
+    env_file: .env
+    environment:
+      - PORT=8080
+      - SCHEDULER_ENABLED=${SCHEDULER_ENABLED:-false}
+      - REFLECT_INTERVAL_SECONDS=${REFLECT_INTERVAL_SECONDS:-21600}
+      - BLINDSPOT_INTERVAL_SECONDS=${BLINDSPOT_INTERVAL_SECONDS:-86400}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.create_connection(('localhost',8080),2); s.close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
