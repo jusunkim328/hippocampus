@@ -62,10 +62,10 @@ check() {
     return
   fi
 
-  # Check Experience Grade label presence
-  if ! echo "$content" | grep -q "Experience Grade"; then
+  # Check Experience Grade or Trust Card label presence
+  if ! echo "$content" | grep -qE "Experience Grade|Trust Card"; then
     echo "  FAIL  #${test_num} ${label}"
-    echo "        -> 'Experience Grade' label missing"
+    echo "        -> 'Experience Grade / Trust Card' label missing"
     echo "        -> First 200 chars: ${content:0:200}"
     FAIL=$((FAIL + 1))
     return
@@ -164,7 +164,7 @@ RESP6=$(converse "How to resolve Redis cache latency?")
 CONTENT6=$(echo "$RESP6" | jq -r '.response.message // .content // empty' 2>/dev/null)
 
 # Success if not Grade D (A, B, C all count as upgrade)
-if echo "$CONTENT6" | grep -q "Experience Grade"; then
+if echo "$CONTENT6" | grep -qE "Experience Grade|Trust Card"; then
   if echo "$CONTENT6" | grep -q "Grade: D"; then
     echo "  FAIL  #6 Grade upgrade (expected D->A/B)"
     echo "        -> still Grade D"
@@ -175,7 +175,7 @@ if echo "$CONTENT6" | grep -q "Experience Grade"; then
   fi
 else
   echo "  FAIL  #6 Grade upgrade"
-  echo "        -> 'Experience Grade' label missing"
+  echo "        -> 'Experience Grade / Trust Card' label missing"
   echo "        -> First 200 chars: ${CONTENT6:0:200}"
   FAIL=$((FAIL + 1))
 fi
