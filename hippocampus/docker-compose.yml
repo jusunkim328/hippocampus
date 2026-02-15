@@ -10,6 +10,7 @@ services:
       - SCHEDULER_ENABLED=${SCHEDULER_ENABLED:-false}
       - REFLECT_INTERVAL_SECONDS=${REFLECT_INTERVAL_SECONDS:-21600}
       - BLINDSPOT_INTERVAL_SECONDS=${BLINDSPOT_INTERVAL_SECONDS:-86400}
+      - SYNC_INTERVAL_SECONDS=${SYNC_INTERVAL_SECONDS:-3600}
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import socket; s=socket.create_connection(('localhost',8080),2); s.close()\""]

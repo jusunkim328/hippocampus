@@ -140,12 +140,13 @@ Query → STEP 1: Recall + Blindspot (동시 호출)
 
 ### MCP Server (`mcp-server/`)
 
-3개 MCP 도구의 백엔드. FastMCP + Streamable HTTP + Python 3.12 + httpx.
+4개 함수의 백엔드. FastMCP + Streamable HTTP + Python 3.12 + httpx.
 
 **도구:**
-- `remember_memory(raw_text, entity, attribute, value, confidence, category)` — 경험 저장
+- `remember_memory(raw_text, entity, attribute, value, confidence, category)` — 경험 저장 (episodic + semantic + staging 3개 인덱스 + 감사 로그)
 - `reflect_consolidate()` — 에피소드 통합 (reflected=false → 카테고리 집계 → 도메인 갱신)
 - `generate_blindspot_report()` — 사각지대 보고서 (VOID/SPARSE/DENSE/Stale)
+- `sync_knowledge_domains()` — staging→lookup 동기화 (삭제→재생성→bulk). 스케줄러 전용, MCP 도구로 노출하지 않음.
 
 **환경변수:**
 | 변수 | 기본값 | 설명 |
@@ -156,10 +157,16 @@ Query → STEP 1: Recall + Blindspot (동시 호출)
 | `SCHEDULER_ENABLED` | `false` | 백그라운드 스케줄러 활성화 |
 | `REFLECT_INTERVAL_SECONDS` | `21600` (6h) | reflect 주기 |
 | `BLINDSPOT_INTERVAL_SECONDS` | `86400` (24h) | blindspot 주기 |
+| `SYNC_INTERVAL_SECONDS` | `3600` (1h) | knowledge-domains 동기화 주기 |
 
 **배포:** `docker compose up -d --build` → ngrok/cloudflared로 HTTPS 터널링. `.mcp` Kibana 커넥터가 `MCP_SERVER_URL`로 연결.
 
-**스케줄러:** 각 도구별 독립 daemon thread + 독립 asyncio event loop. `SCHEDULER_ENABLED=true`로 활성화.
+**스케줄러:** 3개 daemon thread + 각자 독립 asyncio event loop. `SCHEDULER_ENABLED=true`로 활성화.
+- `reflect+sync` thread: reflect 실행 후 자동으로 sync 체이닝 (REFLECT_INTERVAL)
+- `sync` thread: 독립 sync (SYNC_INTERVAL) — remember 후 즉각 반영 목적
+- `blindspot` thread: 사각지대 보고서 (BLINDSPOT_INTERVAL)
+
+**감사 로그:** `remember_memory` 호출 시 `memory-access-log`에 자동 기록 (action=remember).
 
 ## Known Issues & Pitfalls
 
@@ -190,6 +197,25 @@ ES 9.3.0 Technical Preview에서 등록은 성공하지만 실행이 즉시 실�
 1. /app/agent_builder/conversations/new로 네비게이션
 2. 에이전트 선택 → "Elastic AI Agent" 클릭 (기본으로 전환)
 3. 다시 에이전트 선택 → "Hippocampus Trust Gate" 클릭
+```
+
+### ngrok 터널 재시작 시 커넥터 URL 갱신 필요
+
+ngrok free tier는 재시작마다 URL이 바뀜. `.mcp` Kibana 커넥터의 `serverUrl`을 갱신해야 MCP 도구가 동작:
+
+```bash
+# 커넥터 ID 조회
+curl -s "${KIBANA_URL}/api/actions/connectors" \
+  -H "Authorization: ApiKey ${ES_API_KEY}" -H "kbn-xsrf: true" | python3 -c "
+import sys,json
+for c in json.load(sys.stdin):
+  if c.get('connector_type_id')=='.mcp': print(c['id'], c['name'])"
+
+# URL 갱신 (connector_id를 위에서 조회한 값으로 교체)
+curl -X PUT "${KIBANA_URL}/api/actions/connector/<connector_id>" \
+  -H "Authorization: ApiKey ${ES_API_KEY}" -H "kbn-xsrf: true" \
+  -H "x-elastic-internal-origin: Kibana" -H "Content-Type: application/json" \
+  -d '{"name":".mcp","config":{"serverUrl":"https://NEW-URL.ngrok-free.dev/mcp"},"secrets":{}}'
 ```
 
 ### 9.x Dashboard NDJSON 포맷
@@ -227,9 +253,11 @@ curl -s -X POST http://localhost:8080/mcp \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"generate_blindspot_report","arguments":{}}}'
 ```
 
-### UI 테스트 (Playwright MCP)
+### UI 테스트 (Chrome DevTools MCP / Playwright MCP)
 
-Agent Builder UI 테스트는 **Playwright MCP** 사용 (Chrome DevTools는 브라우저 이중 실행 방지를 위해 금지). 응답 25~45초 소요 → `browser_wait_for(text="Experience Grade", time=45)`.
+Agent Builder UI 테스트는 Chrome DevTools MCP 또는 Playwright MCP 사용. 응답 25~45초 소요 → `wait_for(text="Experience Grade", timeout=60000)`.
+
+에이전트 선택 버그 우회가 필수 — 새 대화에서 반드시 다른 에이전트로 전환 후 다시 Hippocampus 선택. 에이전트 드롭다운의 옵션이 a11y 트리에 노출되지 않을 수 있음 → `evaluate_script`로 텍스트 매칭 후 클릭.
 
 ## Project Structure
 
@@ -269,6 +297,7 @@ hippocampus/
 - **범용 검색 도구 제거** — `platform.core.search`가 있으면 LLM이 recall 대신 선택
 - **recall KEEP 필드에 entity/attribute/value** — contradict 호출 시 추가 API 호출 방지 (8→3~4 calls)
 - **고정 출력 템플릿** — Grade 라벨을 "모든 답변의 첫 부분에 반드시 표시"로 강제
+- **RULE 5 자동 기록 프로토콜** — 4가지 트리거(인시던트 보고, 설정 변경, 문제 해결, 새 사실 확인) + Post-Answer Protocol(답변 후 미저장 정보 자체 점검)
 
 ## Working Preferences
 

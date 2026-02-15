@@ -44,6 +44,7 @@ ES_API_KEY = os.environ["ES_API_KEY"]
 SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "false").lower() == "true"
 REFLECT_INTERVAL = int(os.getenv("REFLECT_INTERVAL_SECONDS", "21600"))   # 6시간
 BLINDSPOT_INTERVAL = int(os.getenv("BLINDSPOT_INTERVAL_SECONDS", "86400"))  # 24시간
+SYNC_INTERVAL = int(os.getenv("SYNC_INTERVAL_SECONDS", "3600"))  # 1시간
 
 mcp = FastMCP(
     name="hippocampus-memory-writer",
@@ -114,6 +115,45 @@ async def _es_update_by_query(index: str, body: dict) -> dict:
                 "Content-Type": "application/json",
             },
             content=json.dumps(body),
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def _es_delete_index(index: str) -> int:
+    """ES 인덱스 삭제. HTTP 상태코드 반환."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.delete(
+            f"{ES_URL}/{index}",
+            headers={"Authorization": f"ApiKey {ES_API_KEY}"},
+        )
+        return resp.status_code
+
+
+async def _es_create_index(index: str, body: dict) -> int:
+    """ES 인덱스 생성. HTTP 상태코드 반환."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.put(
+            f"{ES_URL}/{index}",
+            headers={
+                "Authorization": f"ApiKey {ES_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            content=json.dumps(body),
+        )
+        return resp.status_code
+
+
+async def _es_bulk(body: str) -> dict:
+    """ES _bulk API 호출."""
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(
+            f"{ES_URL}/_bulk",
+            headers={
+                "Authorization": f"ApiKey {ES_API_KEY}",
+                "Content-Type": "application/x-ndjson",
+            },
+            content=body,
         )
         resp.raise_for_status()
         return resp.json()
@@ -201,6 +241,19 @@ async def remember_memory(
     if ok_count < 3:
         failed = [k for k, v in results.items() if v["status"] != "ok"]
         summary += f" — 실패: {', '.join(failed)}"
+
+    # 4) 감사 로그 기록 (memory-access-log)
+    try:
+        await _index_document("memory-access-log", {
+            "timestamp": now,
+            "action": "remember",
+            "query": f"{entity} {attribute}",
+            "experience_grade": "NEW",
+            "relevance_score": _parse_confidence(confidence),
+            "blindspot_triggered": False,
+        })
+    except Exception as e:
+        logger.error("remember: audit log write failed: %s", e)
 
     return json.dumps({"summary": summary, "details": results}, ensure_ascii=False)
 
@@ -483,10 +536,109 @@ async def generate_blindspot_report() -> str:
     }, ensure_ascii=False)
 
 
+# ─── 도메인 동기화 (staging → lookup) ─────────────────────────
+
+# knowledge-domains 인덱스 스키마 (index.mode: lookup)
+KNOWLEDGE_DOMAINS_SCHEMA = {
+    "settings": {"index.mode": "lookup"},
+    "mappings": {
+        "properties": {
+            "domain": {"type": "keyword"},
+            "memory_count": {"type": "integer"},
+            "avg_confidence": {"type": "float"},
+            "last_updated": {"type": "date"},
+            "density_score": {"type": "float"},
+            "status": {"type": "keyword"},
+        }
+    },
+}
+
+
+async def sync_knowledge_domains() -> str:
+    """knowledge-domains-staging → knowledge-domains (lookup) 동기화.
+
+    08-sync-domains.sh의 Python 구현.
+    staging에서 도메인별 집계 → lookup 삭제 → 재생성 → bulk 투입.
+    """
+    # 1. staging에서 도메인별 집계
+    try:
+        agg_resp = await _es_aggregate("knowledge-domains-staging", {
+            "aggs": {
+                "by_domain": {
+                    "terms": {"field": "domain", "size": 100},
+                    "aggs": {
+                        "latest": {"max": {"field": "last_updated"}},
+                        "avg_conf": {"avg": {"field": "avg_confidence"}},
+                        "max_count": {"max": {"field": "memory_count"}},
+                        "max_density": {"max": {"field": "density_score"}},
+                    },
+                }
+            },
+        })
+    except Exception as e:
+        msg = f"sync: staging 집계 실패: {e}"
+        logger.error(msg)
+        return json.dumps({"error": msg}, ensure_ascii=False)
+
+    buckets = agg_resp.get("aggregations", {}).get("by_domain", {}).get("buckets", [])
+    if not buckets:
+        return json.dumps({"summary": "staging에 데이터 없음 — 동기화 건너뜀"}, ensure_ascii=False)
+
+    # 2. lookup 인덱스 삭제
+    del_status = await _es_delete_index("knowledge-domains")
+    logger.info("sync: knowledge-domains 삭제 HTTP %d", del_status)
+
+    # 3. lookup 모드로 재생성
+    create_status = await _es_create_index("knowledge-domains", KNOWLEDGE_DOMAINS_SCHEMA)
+    if create_status not in (200, 201):
+        msg = f"sync: knowledge-domains 재생성 실패 HTTP {create_status}"
+        logger.error(msg)
+        return json.dumps({"error": msg}, ensure_ascii=False)
+
+    # 4. 집계 결과를 bulk로 투입
+    bulk_lines = []
+    for b in buckets:
+        domain = b["key"]
+        mem_count = int(b["max_count"]["value"] or 0)
+        avg_conf = round(b["avg_conf"]["value"] or 0, 2)
+        density = round(b["max_density"]["value"] or 0, 2)
+        last_upd = b["latest"].get("value_as_string", "")
+
+        status = "DENSE"
+        if density < 1.0:
+            status = "VOID"
+        elif density < 5.0:
+            status = "SPARSE"
+
+        bulk_lines.append(json.dumps({"index": {"_index": "knowledge-domains"}}))
+        bulk_lines.append(json.dumps({
+            "domain": domain,
+            "memory_count": mem_count,
+            "avg_confidence": avg_conf,
+            "last_updated": last_upd,
+            "density_score": density,
+            "status": status,
+        }))
+
+    bulk_body = "\n".join(bulk_lines) + "\n"
+    try:
+        bulk_resp = await _es_bulk(bulk_body)
+        errors = bulk_resp.get("errors", False)
+        summary = f"동기화 완료: {len(buckets)}개 도메인"
+        if errors:
+            summary += " (일부 벌크 오류 발생)"
+        logger.info("sync: %s", summary)
+        return json.dumps({"summary": summary, "domains_synced": len(buckets)}, ensure_ascii=False)
+    except Exception as e:
+        msg = f"sync: bulk 투입 실패: {e}"
+        logger.error(msg)
+        return json.dumps({"error": msg}, ensure_ascii=False)
+
+
 # ─── 백그라운드 스케줄러 ──────────────────────────────────────
 
 def _run_scheduler():
-    """daemon thread에서 reflect/blindspot을 주기적으로 실행."""
+    """daemon thread에서 reflect/blindspot/sync를 주기적으로 실행."""
 
     def _run_task(name, coro_fn, interval):
         """interval초마다 coro_fn을 실행하는 루프. 각 thread가 자체 event loop 사용."""
@@ -501,9 +653,28 @@ def _run_scheduler():
             except Exception as e:
                 logger.error("[scheduler] %s 실패: %s", name, e)
 
+    def _run_reflect_then_sync(interval):
+        """reflect 실행 후 자동으로 sync 실행. 별도 thread."""
+        loop = asyncio.new_event_loop()
+        while True:
+            time.sleep(interval)
+            try:
+                logger.info("[scheduler] reflect_consolidate 실행 시작")
+                result = loop.run_until_complete(reflect_consolidate())
+                parsed = json.loads(result)
+                logger.info("[scheduler] reflect_consolidate 완료: %s", parsed.get("summary", "ok"))
+
+                # reflect 후 자동 sync
+                logger.info("[scheduler] reflect 후 sync_knowledge_domains 실행")
+                sync_result = loop.run_until_complete(sync_knowledge_domains())
+                sync_parsed = json.loads(sync_result)
+                logger.info("[scheduler] sync 완료: %s", sync_parsed.get("summary", "ok"))
+            except Exception as e:
+                logger.error("[scheduler] reflect+sync 실패: %s", e)
+
     reflect_thread = threading.Thread(
-        target=_run_task,
-        args=("reflect_consolidate", reflect_consolidate, REFLECT_INTERVAL),
+        target=_run_reflect_then_sync,
+        args=(REFLECT_INTERVAL,),
         daemon=True,
     )
     blindspot_thread = threading.Thread(
@@ -511,12 +682,18 @@ def _run_scheduler():
         args=("generate_blindspot_report", generate_blindspot_report, BLINDSPOT_INTERVAL),
         daemon=True,
     )
+    sync_thread = threading.Thread(
+        target=_run_task,
+        args=("sync_knowledge_domains", sync_knowledge_domains, SYNC_INTERVAL),
+        daemon=True,
+    )
 
     reflect_thread.start()
     blindspot_thread.start()
+    sync_thread.start()
     logger.info(
-        "[scheduler] 시작됨 — reflect: %ds, blindspot: %ds",
-        REFLECT_INTERVAL, BLINDSPOT_INTERVAL,
+        "[scheduler] 시작됨 — reflect: %ds, blindspot: %ds, sync: %ds",
+        REFLECT_INTERVAL, BLINDSPOT_INTERVAL, SYNC_INTERVAL,
     )
 
 
