@@ -5,3 +5,19 @@
 # Playwright MCP test output
 .playwright-mcp/
 .claude/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Security
+*.pem
+*.key
+
+# Logs
+*.log
+
+# Export files
+hippocampus-export.ndjson

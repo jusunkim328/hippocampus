@@ -59,10 +59,37 @@ mcp = FastMCP(
 )
 
 
+ALLOWED_INDICES = frozenset({
+    "episodic-memories", "semantic-memories", "knowledge-domains",
+    "knowledge-domains-staging", "memory-associations", "memory-access-log",
+})
+
+def _validate_index(index: str) -> str:
+    if index not in ALLOWED_INDICES:
+        raise ValueError(f"Index '{index}' is not in the allowed list")
+    return index
+
+MAX_FIELD_LENGTH = 256
+MAX_VALUE_LENGTH = 2000
+MAX_RAW_TEXT_LENGTH = 10000
+MAX_EXTERNAL_REFS = 10
+
+MAX_IMPORT_LINES = 1000
+MAX_IMPORT_BYTES = 5 * 1024 * 1024  # 5MB
+
+
+def _safe_error(e: Exception) -> str:
+    error_type = type(e).__name__
+    if isinstance(e, httpx.HTTPStatusError):
+        return f"{error_type}: HTTP {e.response.status_code}"
+    return error_type
+
+
 # ─── ES Helper Functions ─────────────────────────────────────────────
 
 async def _index_document(index: str, document: dict) -> dict:
     """Index a document via ES REST API."""
+    _validate_index(index)
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
             f"{ES_URL}/{index}/_doc",
@@ -78,6 +105,7 @@ async def _index_document(index: str, document: dict) -> dict:
 
 async def _es_search(index: str, body: dict) -> dict:
     """Search via ES REST API."""
+    _validate_index(index)
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
             f"{ES_URL}/{index}/_search",
@@ -93,6 +121,7 @@ async def _es_search(index: str, body: dict) -> dict:
 
 async def _es_aggregate(index: str, body: dict) -> dict:
     """Aggregate via ES REST API (size=0 default)."""
+    _validate_index(index)
     if "size" not in body:
         body["size"] = 0
     async with httpx.AsyncClient(timeout=30) as client:
@@ -110,6 +139,7 @@ async def _es_aggregate(index: str, body: dict) -> dict:
 
 async def _es_update_by_query(index: str, body: dict) -> dict:
     """Bulk update via ES REST API."""
+    _validate_index(index)
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.post(
             f"{ES_URL}/{index}/_update_by_query",
@@ -125,6 +155,7 @@ async def _es_update_by_query(index: str, body: dict) -> dict:
 
 async def _es_delete_index(index: str) -> int:
     """Delete an ES index. Returns HTTP status code."""
+    _validate_index(index)
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.delete(
             f"{ES_URL}/{index}",
@@ -135,6 +166,7 @@ async def _es_delete_index(index: str) -> int:
 
 async def _es_create_index(index: str, body: dict) -> int:
     """Create an ES index. Returns HTTP status code."""
+    _validate_index(index)
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.put(
             f"{ES_URL}/{index}",
@@ -199,6 +231,18 @@ async def remember_memory(
     # Parse external_refs — comma-separated URLs → list
     refs_list = [r.strip() for r in external_refs.split(",") if r.strip()] if external_refs else []
 
+    # Validate input lengths
+    if len(raw_text) > MAX_RAW_TEXT_LENGTH:
+        return json.dumps({"error": f"raw_text exceeds {MAX_RAW_TEXT_LENGTH} characters"})
+    if len(entity) > MAX_FIELD_LENGTH or len(attribute) > MAX_FIELD_LENGTH:
+        return json.dumps({"error": f"entity/attribute exceeds {MAX_FIELD_LENGTH} characters"})
+    if len(value) > MAX_VALUE_LENGTH:
+        return json.dumps({"error": f"value exceeds {MAX_VALUE_LENGTH} characters"})
+    if len(category) > MAX_FIELD_LENGTH:
+        return json.dumps({"error": f"category exceeds {MAX_FIELD_LENGTH} characters"})
+    if len(refs_list) > MAX_EXTERNAL_REFS:
+        return json.dumps({"error": f"external_refs exceeds {MAX_EXTERNAL_REFS} items"})
+
     # 1) episodic-memories — raw experience record
     try:
         ep_doc = {
@@ -216,7 +260,7 @@ async def remember_memory(
         results["episodic"] = {"status": "ok", "id": r.get("_id")}
     except Exception as e:
         logger.error("episodic-memories write failed: %s", e)
-        results["episodic"] = {"status": "error", "message": str(e)}
+        results["episodic"] = {"status": "error", "message": _safe_error(e)}
 
     # 2) semantic-memories — SPO triples
     try:
@@ -237,7 +281,7 @@ async def remember_memory(
         results["semantic"] = {"status": "ok", "id": r.get("_id")}
     except Exception as e:
         logger.error("semantic-memories write failed: %s", e)
-        results["semantic"] = {"status": "error", "message": str(e)}
+        results["semantic"] = {"status": "error", "message": _safe_error(e)}
 
     # 3) knowledge-domains-staging — domain density update (staging → lookup sync)
     try:
@@ -248,7 +292,7 @@ async def remember_memory(
         results["domain"] = {"status": "ok", "id": r.get("_id")}
     except Exception as e:
         logger.error("knowledge-domains write failed: %s", e)
-        results["domain"] = {"status": "error", "message": str(e)}
+        results["domain"] = {"status": "error", "message": _safe_error(e)}
 
     ok_count = sum(1 for v in results.values() if v["status"] == "ok")
     summary = f"Saved successfully ({ok_count}/3 indices)"
@@ -296,7 +340,7 @@ async def reflect_consolidate() -> str:
         hits = episodic_resp.get("hits", {}).get("hits", [])
     except Exception as e:
         logger.error("reflect: episodic search failed: %s", e)
-        return json.dumps({"error": f"Episodic search failed: {e}"}, ensure_ascii=False)
+        return json.dumps({"error": f"Episodic search failed: {_safe_error(e)}"}, ensure_ascii=False)
 
     if not hits:
         return json.dumps({
@@ -354,7 +398,7 @@ async def reflect_consolidate() -> str:
         results["semantic_stats"] = semantic_stats
     except Exception as e:
         logger.error("reflect: semantic aggregation failed: %s", e)
-        results["semantic_stats"] = {"error": str(e)}
+        results["semantic_stats"] = {"error": _safe_error(e)}
 
     # STEP 4: Update domain statistics in knowledge-domains-staging
     domain_updates = {}
@@ -383,7 +427,7 @@ async def reflect_consolidate() -> str:
             domain_updates[cat] = {"status": status, "density_score": density_score}
         except Exception as e:
             logger.error("reflect: domain update failed for %s: %s", cat, e)
-            domain_updates[cat] = {"error": str(e)}
+            domain_updates[cat] = {"error": _safe_error(e)}
 
     results["domain_updates"] = domain_updates
 
@@ -399,7 +443,7 @@ async def reflect_consolidate() -> str:
         results["marked_reflected"] = update_resp.get("updated", 0)
     except Exception as e:
         logger.error("reflect: update_by_query failed: %s", e)
-        results["marked_reflected"] = {"error": str(e)}
+        results["marked_reflected"] = {"error": _safe_error(e)}
 
     # STEP 6: Return episode texts for review
     episodes_for_review = []
@@ -657,6 +701,13 @@ async def import_knowledge_base(ndjson: str) -> str:
         ndjson: NDJSON format string. Each line is a JSON object with _type field.
     """
     now = datetime.now(timezone.utc).isoformat()
+
+    # Validate import size
+    if len(ndjson) > MAX_IMPORT_BYTES:
+        return json.dumps({"error": f"Import data exceeds {MAX_IMPORT_BYTES // (1024*1024)}MB limit"})
+    if ndjson.count('\n') + 1 > MAX_IMPORT_LINES:
+        return json.dumps({"error": f"Import data exceeds {MAX_IMPORT_LINES} lines limit"})
+
     imported = {"episodic": 0, "semantic": 0, "domain": 0}
     conflicts: list[dict] = []
     errors: list[str] = []
@@ -693,7 +744,7 @@ async def import_knowledge_base(ndjson: str) -> str:
                 if item.get("index", {}).get("status") in (200, 201)
             )
         except Exception as e:
-            errors.append(f"episodic bulk: {e}")
+            errors.append(f"episodic bulk: {_safe_error(e)}")
 
     # 2) semantic-memories — bulk insert after duplicate check
     if docs["semantic"]:
@@ -740,7 +791,7 @@ async def import_knowledge_base(ndjson: str) -> str:
                 if item.get("index", {}).get("status") in (200, 201)
             )
         except Exception as e:
-            errors.append(f"semantic bulk: {e}")
+            errors.append(f"semantic bulk: {_safe_error(e)}")
 
     # 3) knowledge-domains-staging — bulk insert
     if docs["domain"]:
@@ -756,7 +807,7 @@ async def import_knowledge_base(ndjson: str) -> str:
                 if item.get("index", {}).get("status") in (200, 201)
             )
         except Exception as e:
-            errors.append(f"domain bulk: {e}")
+            errors.append(f"domain bulk: {_safe_error(e)}")
 
     total = sum(imported.values())
     summary = (
@@ -829,8 +880,8 @@ async def sync_knowledge_domains() -> str:
             },
         })
     except Exception as e:
-        msg = f"sync: staging aggregation failed: {e}"
-        logger.error(msg)
+        msg = f"sync: staging aggregation failed: {_safe_error(e)}"
+        logger.error("sync: staging aggregation failed: %s", e)
         return json.dumps({"error": msg}, ensure_ascii=False)
 
     buckets = agg_resp.get("aggregations", {}).get("by_domain", {}).get("buckets", [])
@@ -883,8 +934,8 @@ async def sync_knowledge_domains() -> str:
         logger.info("sync: %s", summary)
         return json.dumps({"summary": summary, "domains_synced": len(buckets)}, ensure_ascii=False)
     except Exception as e:
-        msg = f"sync: bulk insert failed: {e}"
-        logger.error(msg)
+        msg = f"sync: bulk insert failed: {_safe_error(e)}"
+        logger.error("sync: bulk insert failed: %s", e)
         return json.dumps({"error": msg}, ensure_ascii=False)
 
 

@@ -178,7 +178,7 @@ cp .env.example .env
 # Edit .env: ES_URL, ES_API_KEY, KIBANA_URL, MCP_SERVER_URL
 
 # 1. MCP server is deployed on Cloud Run (fixed HTTPS URL, no tunnel needed)
-# URL: https://hippocampus-mcp-1096006807994.asia-northeast3.run.app
+# URL: Set MCP_URL in .env (see .env.example)
 # To redeploy: cd mcp-server && docker build --platform linux/amd64 -t your-region-docker.pkg.dev/your-gcp-project-id/hippocampus/mcp-server:latest . && docker push ... && gcloud run deploy ...
 
 # 2. Deploy in order (each script depends on the previous)
@@ -239,7 +239,7 @@ Backend for the 6 MCP tools (`remember`, `reflect`, `blindspot-report`, `export`
 
 ```bash
 # Cloud Run URL (fixed — no tunnel needed)
-MCP_URL=https://hippocampus-mcp-1096006807994.asia-northeast3.run.app
+MCP_URL=https://your-cloud-run-url.run.app
 
 # Direct MCP calls (for debugging)
 curl -s -X POST "$MCP_URL/mcp" \
@@ -356,6 +356,23 @@ This is an Elastic-side execution engine issue, not a code problem. YAML syntax,
 ```
 
 When the execution engine bug is fixed, workflows can be re-implemented as an alternative to MCP.
+
+---
+
+## Security
+
+- **Synthetic Data Only** — All seed data and demo scenarios use synthetic data. No real or confidential information is stored.
+- **API Key Authentication** — All Elasticsearch and Kibana API calls require `ES_API_KEY`. The key is never committed to the repository.
+- **MCP Server Authentication** — The MCP server supports optional Bearer token authentication via `MCP_AUTH_TOKEN` environment variable. In Cloud Run production, the service is deployed with `--allow-unauthenticated` for hackathon scope. For production use, Cloud Run IAM should be configured.
+- **Input Validation** — The MCP server validates input lengths, index names (whitelist), and import sizes to prevent abuse.
+- **Git History** — This repository's git history may contain previously committed URLs or configuration values from development. These have been removed from the current codebase. If forking, consider using `--depth 1` for a shallow clone.
+
+---
+
+## Known Limitations
+
+- **Kibana `.mcp` Connector Auth** — The Kibana `.mcp` connector does not forward `Authorization` headers set in `secrets.headers` to the MCP server. App-level Bearer token authentication is not possible through this path. Mitigation: Cloud Run IAM + `--allow-unauthenticated` for hackathon scope.
+- **Elastic Workflows** — Elastic Workflows (Technical Preview) execution engine has a bug in ES 9.x — registration succeeds but execution fails. All workflow functionality has been migrated to MCP tools.
 
 ---
 

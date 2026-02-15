@@ -22,7 +22,7 @@ AGENT_ID="hippocampus"
 PASS=0
 FAIL=0
 TOTAL=10
-MCP_URL="${MCP_URL:-https://hippocampus-mcp-1096006807994.asia-northeast3.run.app}"
+MCP_URL="${MCP_URL:?MCP_URL is required. Set it in .env}"
 MCP_AUTH_TOKEN="${MCP_AUTH_TOKEN:-}"
 
 # ── helpers ──────────────────────────────────────────────────────────────────
