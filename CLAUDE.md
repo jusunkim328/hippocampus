@@ -15,7 +15,7 @@ Hippocampus is an **AI Agent Guardrails** system built on Elasticsearch Agent Bu
 - **Submission Requirements**: ~300-word description + 3-min demo video + public repository (OSI license) + optional social post (@elastic_devs)
 - **Data Rules**: All data must be open-source or synthetic — no confidential or personal data
 - **Required Tech**: Elastic Workflows, Search, or ES|QL (at least one) — satisfied by 4 ES|QL tools
-- **Demo Script**: `demo/demo-script.md` — 4-act structure
+
 
 ### Pre-Submission Checklist
 
@@ -303,7 +303,6 @@ Agent selection bug workaround is required — in a new conversation, always swi
 ├── test/e2e-test.sh               # E2E 10 scenarios
 ├── dashboard/*.ndjson             # Kibana dashboard
 ├── seed-data/*.ndjson             # Seed data (synthetic)
-├── demo/demo-script.md            # Demo script
 ├── docker-compose.yml             # MCP server Docker Compose
 ├── .env.example                   # Environment variable template
 └── .env                           # Actual environment variables (gitignored)

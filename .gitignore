@@ -2,6 +2,9 @@
 .DS_Store
 *.code-workspace
 
+# Internal notes (not for submission)
+demo/
+
 # Playwright MCP test output
 .playwright-mcp/
 .claude/
