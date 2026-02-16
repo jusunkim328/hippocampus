@@ -134,6 +134,39 @@ The demo is a 3-minute, 4-act presentation.
 
 ---
 
+## Elastic Features Used
+
+### Agent Builder — Multi-step Tool Orchestration
+
+11 tools (4 ES|QL + 5 MCP + 2 platform) orchestrated by a single agent. The Trust Gate's 4-step verification protocol is enforced through **pure instruction engineering** — MUST/NEVER rules and STEP numbering in the system prompt, no hardcoded logic. The agent also exposes the **Converse API** for programmatic access and **A2A Protocol** for agent-to-agent invocation.
+
+### ES|QL — LOOKUP JOIN for Single-Query Density Enrichment
+
+The `hippocampus-recall` tool performs semantic search AND domain density assessment in a single ES|QL statement:
+
+```sql
+FROM episodic-memories, semantic-memories
+| WHERE MATCH(content, ?query)
+| LOOKUP JOIN knowledge-domains ON domain
+| EVAL density_status = CASE(density < 1.0, "VOID", density < 5.0, "SPARSE", "DENSE")
+```
+
+No extra API calls — the Trust Gate gets content relevance and blindspot status simultaneously.
+
+### ELSER v2 — Zero-Pipeline Semantic Search
+
+Both memory indices use the `semantic_text` field type with ELSER v2. Elasticsearch handles tokenization, inference, and vector storage automatically — no external embedding service required.
+
+### ILM — Automatic Memory Lifecycle
+
+Two policies mirror human memory decay: episodic memories expire after 90 days, audit logs after 30 days. Consolidated semantic knowledge persists indefinitely.
+
+### Kibana — Operational Dashboard
+
+8 Lens panels monitor Trust Gate health: domain density heatmap, experience grade distribution, memory timeline, semantic knowledge map, and tool activity tracking.
+
+---
+
 ## Components
 
 ### Agent
@@ -177,7 +210,7 @@ The MCP tools run on an external [FastMCP](https://github.com/jlowin/fastmcp) se
 | Blindspot | Daily at 4am | `generate_blindspot_report` |
 | Domain Sync | Hourly | `sync_knowledge_domains` |
 
-> **Why MCP instead of Elastic Workflows?** Elastic Workflows (Technical Preview, ES 9.x) have an execution engine bug — registration succeeds but execution fails immediately. All workflow functionality has been migrated to MCP tools. See [CLAUDE.md](CLAUDE.md) for details.
+> **Why MCP instead of Elastic Workflows?** Elastic Workflows (Technical Preview, ES 9.x) have an execution engine bug — registration succeeds but execution fails immediately. All workflow functionality has been migrated to MCP tools.
 
 ---
 
@@ -198,7 +231,7 @@ cp .env.example .env
 
 # 2. Deploy MCP server (Cloud Run or local Docker)
 docker compose up -d --build                      # Local
-# Or: see CLAUDE.md for Cloud Run deployment steps
+# Or: deploy to Cloud Run (see Dockerfile in mcp-server/)
 
 # 3. Run setup scripts in order
 bash setup/01-indices.sh         # 5 ES indices
@@ -290,8 +323,7 @@ bash setup/07-verify.sh   # A2A + Converse API + Agent registration check
 ├── test/e2e-test.sh                  # 10-scenario E2E test suite
 ├── dashboard/                        # Kibana dashboard (9.x NDJSON)
 ├── docker-compose.yml                # Local MCP server
-├── .env.example                      # Environment variable template
-└── CLAUDE.md                         # Full technical documentation
+└── .env.example                      # Environment variable template
 ```
 
 ---

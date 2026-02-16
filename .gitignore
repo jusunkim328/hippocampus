@@ -4,6 +4,7 @@
 
 # Internal notes (not for submission)
 demo/
+CLAUDE.md
 
 # Playwright MCP test output
 .playwright-mcp/
