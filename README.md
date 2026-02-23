@@ -6,29 +6,29 @@
 [![Agent Builder](https://img.shields.io/badge/Agent_Builder-Hackathon-F04E98)](https://elasticsearch.devpost.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **LLMs are confidently wrong. This agent self-verifies against organizational experience before answering.**
+> **What if your AI agent could say "I don't know" instead of confidently being wrong? Hippocampus checks organizational memory in Elasticsearch before every answer.**
 
-Named after the brain region responsible for memory consolidation, Hippocampus implements a **dual-memory architecture** (episodic + semantic) — mirroring how the human brain stores raw experiences and distills them into lasting knowledge.
+Built on Elasticsearch Agent Builder, Hippocampus adds a Trust Gate that verifies every response against your team's operational experience before delivery.
 
-![Trust Gate Grade A — CONFLICT detected and corrected](assets/trust-gate-grade-a.png)
+![Trust Gate Grade A, CONFLICT detected and corrected](assets/trust-gate-grade-a.png)
 
 ---
 
 ## The Problem
 
-AI agents hallucinate. They give **confident but wrong** answers based on stale training data. In DevOps incident response, wrong advice doesn't just waste time — it can **worsen outages**.
+AI agents hallucinate. They give confident but wrong answers based on stale training data. In DevOps incident response, wrong advice doesn't just waste time. It can worsen outages.
 
 - 3 months ago, your team found that a DB connection pool size of 50 was optimal
 - Last week, the team increased it to 100 to resolve recurring timeouts
 - A standard LLM still confidently recommends 50
 
-**The cost of confidently wrong advice during an incident is measured in downtime.**
+The LLM has zero access to your team's operational experience. Years of postmortems, runbook updates, config changes. None of it reaches the model. Wrong advice during an incident costs downtime.
 
 ---
 
 ## The Solution: Trust Gate
 
-Hippocampus introduces the **Trust Gate** — a pre-flight verification system built on Elasticsearch Agent Builder. Every response is checked against organizational experience data before delivery.
+Hippocampus introduces the **Trust Gate**, a pre-flight verification system built on Elasticsearch Agent Builder. Every response is checked against organizational experience data before delivery. Memory is split into two layers: episodic (raw incidents, 90-day expiry) and semantic (consolidated knowledge, permanent). The system both remembers recent events and retains proven solutions.
 
 ```mermaid
 graph LR
@@ -47,20 +47,20 @@ graph LR
 
 The Trust Gate performs 4 verification steps:
 
-1. **Recall** — Semantic search (ELSER v2) across organizational experience
-2. **Grade** — Assign confidence (A/B/C/D) based on evidence depth and recency
-3. **Contradict** — Detect conflicts between old and new knowledge (Knowledge Drift)
-4. **Blindspot** — Identify domains where experience is lacking
+1. **Recall**: Semantic search (ELSER v2) across organizational experience
+2. **Grade**: Assign confidence (A/B/C/D) based on evidence depth and recency
+3. **Contradict**: Detect conflicts between old and new knowledge (Knowledge Drift)
+4. **Blindspot**: Identify domains where experience is lacking
 
-![Trust Gate reasoning — multi-step verification with ES|QL LOOKUP JOIN](assets/reasoning-process.png)
+![Trust Gate reasoning, multi-step verification with ES|QL LOOKUP JOIN](assets/reasoning-process.png)
 
-When evidence is insufficient, the agent declares **EXECUTION HOLD** — refusing to give confident recommendations and directing the user to consult domain experts.
+When evidence is insufficient, the agent declares **EXECUTION HOLD**. It refuses to give confident recommendations and directs the user to consult domain experts.
 
-![EXECUTION HOLD — refusing to recommend without verified evidence](assets/trust-gate-execution-hold.png)
+![EXECUTION HOLD, refuses to recommend without verified evidence](assets/trust-gate-execution-hold.png)
 
 ### Memory Consolidation Loop
 
-The Trust Gate gets smarter over time. New experiences are stored, consolidated, and fed back into the verification pipeline:
+The Trust Gate improves as experiences accumulate. New experiences are stored, consolidated, and fed back into the verification pipeline:
 
 ```mermaid
 graph LR
@@ -76,7 +76,7 @@ graph LR
     style Density fill:#FEC514,color:#000
 ```
 
-![Experience Recorded — Auto-Record Protocol stores new knowledge](assets/experience-recorded.png)
+![Experience Recorded, Auto-Record Protocol stores new knowledge](assets/experience-recorded.png)
 
 ### Key Differentiator: Verify + Adapt
 
@@ -99,7 +99,7 @@ graph LR
 
 ## Experience Grades
 
-Every response begins with a **Trust Card** — a structured verification summary:
+Every response begins with a **Trust Card**, a structured verification summary:
 
 ```
 📊 Trust Card
@@ -126,21 +126,21 @@ The demo is a 3-minute, 4-act presentation.
 | Act | Title | What Happens |
 |-----|-------|-------------|
 | **1** | The Hook | Standard LLM gives confident but outdated advice (pool size 50) |
-| **2** | Trust Gate ON | CONFLICT detected — old "50" vs new "100", corrected answer |
-| **3** | The Unknown | Grade D + EXECUTION HOLD — honest "insufficient evidence" |
+| **2** | Trust Gate ON | CONFLICT detected: old "50" vs new "100", corrected answer |
+| **3** | The Unknown | Grade D + EXECUTION HOLD: honest "insufficient evidence" |
 | **4** | Growth | New experience stored, dashboard shows density improvement |
 
-![Kibana Dashboard — Trust Gate monitoring with 8 Lens panels](assets/dashboard.png)
+![Kibana Dashboard, Trust Gate monitoring with 8 Lens panels](assets/dashboard.png)
 
 ---
 
 ## Elastic Features Used
 
-### Agent Builder — Multi-step Tool Orchestration
+### Agent Builder: Multi-step Tool Orchestration
 
-11 tools (4 ES|QL + 5 MCP + 2 platform) orchestrated by a single agent. The Trust Gate's 4-step verification protocol is enforced through **pure instruction engineering** — MUST/NEVER rules and STEP numbering in the system prompt, no hardcoded logic. The agent also exposes the **Converse API** for programmatic access and **A2A Protocol** for agent-to-agent invocation.
+11 tools (4 ES|QL + 5 MCP + 2 platform) orchestrated by a single agent. The Trust Gate's 4-step verification protocol is enforced through pure instruction engineering: MUST/NEVER rules and STEP numbering in the system prompt, no hardcoded logic. The agent also exposes the Converse API for programmatic access and A2A Protocol for agent-to-agent invocation.
 
-### ES|QL — LOOKUP JOIN for Single-Query Density Enrichment
+### ES|QL: LOOKUP JOIN for Single-Query Density Enrichment
 
 The `hippocampus-recall` tool performs semantic search AND domain density assessment in a single ES|QL statement:
 
@@ -151,17 +151,17 @@ FROM episodic-memories, semantic-memories
 | EVAL density_status = CASE(density < 1.0, "VOID", density < 5.0, "SPARSE", "DENSE")
 ```
 
-No extra API calls — the Trust Gate gets content relevance and blindspot status simultaneously.
+No extra API calls. The Trust Gate gets content relevance and blindspot status in one query.
 
-### ELSER v2 — Zero-Pipeline Semantic Search
+### ELSER v2: Zero-Pipeline Semantic Search
 
-Both memory indices use the `semantic_text` field type with ELSER v2. Elasticsearch handles tokenization, inference, and vector storage automatically — no external embedding service required.
+Both memory indices use the `semantic_text` field type with ELSER v2. Elasticsearch handles tokenization, inference, and vector storage automatically. No external embedding service required.
 
-### ILM — Automatic Memory Lifecycle
+### ILM: Automatic Memory Lifecycle
 
-Two policies mirror human memory decay: episodic memories expire after 90 days, audit logs after 30 days. Consolidated semantic knowledge persists indefinitely.
+Two ILM policies manage retention: episodic memories are deleted after 90 days, audit logs after 30 days. Semantic knowledge is kept indefinitely.
 
-### Kibana — Operational Dashboard
+### Kibana: Operational Dashboard
 
 8 Lens panels monitor Trust Gate health: domain density heatmap, experience grade distribution, memory timeline, semantic knowledge map, and tool activity tracking.
 
@@ -171,15 +171,15 @@ Two policies mirror human memory decay: episodic memories expire after 90 days, 
 
 ### Agent
 
-**Hippocampus Trust Gate** — A DevOps incident copilot with RULE-based instructions (MUST/NEVER keywords + STEP numbering) that enforce the multi-step Trust Gate verification protocol through pure prompt design.
+**Hippocampus Trust Gate**: a DevOps incident copilot with RULE-based instructions (MUST/NEVER keywords + STEP numbering) that enforce the multi-step Trust Gate verification protocol through pure prompt design.
 
 ### Tools (9 custom + 2 platform)
 
 | Tool | Type | Trust Gate Role |
 |------|------|-----------------|
-| `hippocampus-recall` | ES\|QL | STEP 1 — Semantic experience search (top 5, LOOKUP JOIN with density) |
-| `hippocampus-blindspot-targeted` | ES\|QL | STEP 1 — Domain density lookup |
-| `hippocampus-contradict` | ES\|QL | STEP 3 — Knowledge Drift detection |
+| `hippocampus-recall` | ES\|QL | STEP 1: Semantic experience search (top 5, LOOKUP JOIN with density) |
+| `hippocampus-blindspot-targeted` | ES\|QL | STEP 1: Domain density lookup |
+| `hippocampus-contradict` | ES\|QL | STEP 3: Knowledge Drift detection |
 | `hippocampus-blindspot-density` | ES\|QL | Full domain density scan |
 | `hippocampus-remember` | MCP | Store new experience → 3 indices + audit log |
 | `hippocampus-reflect` | MCP | Episode consolidation → domain density update |
@@ -210,7 +210,7 @@ The MCP tools run on an external [FastMCP](https://github.com/jlowin/fastmcp) se
 | Blindspot | Daily at 4am | `generate_blindspot_report` |
 | Domain Sync | Hourly | `sync_knowledge_domains` |
 
-> **Why MCP instead of Elastic Workflows?** Elastic Workflows (Technical Preview, ES 9.x) have an execution engine bug — registration succeeds but execution fails immediately. All workflow functionality has been migrated to MCP tools.
+> **Why MCP instead of Elastic Workflows?** Elastic Workflows (Technical Preview, ES 9.x) have an execution engine bug: registration succeeds but execution fails immediately. All workflow functionality has been migrated to MCP tools.
 
 ---
 
@@ -248,7 +248,7 @@ curl -X POST "${KIBANA_URL}/api/saved_objects/_import?overwrite=true" \
   -F file=@dashboard/hippocampus-dashboard-9x.ndjson
 ```
 
-> Scripts 01-02, 06 target `ES_URL`. Scripts 03-05 target `KIBANA_URL`. All seed data is **synthetic** — no real or confidential data is used.
+> Scripts 01-02, 06 target `ES_URL`. Scripts 03-05 target `KIBANA_URL`. All seed data is synthetic. No real or confidential data is used.
 
 ---
 
@@ -312,7 +312,7 @@ bash setup/07-verify.sh   # A2A + Converse API + Agent registration check
 │   ├── contradict.json
 │   ├── blindspot-density.json
 │   └── blindspot-targeted.json
-├── mcp-server/                       # FastMCP server (5 MCP tools)
+├── mcp-server/                       # FastMCP server (6 MCP tools)
 │   ├── server.py
 │   ├── Dockerfile
 │   └── requirements.txt
@@ -330,18 +330,18 @@ bash setup/07-verify.sh   # A2A + Converse API + Agent registration check
 
 ## Known Limitations
 
-- **Elastic Workflows** — Technical Preview execution engine bug in ES 9.x. All workflow functionality migrated to MCP tools.
-- **Kibana `.mcp` Connector Auth** — Does not forward `Authorization` headers to MCP servers. Mitigated with Cloud Run IAM.
+- **Elastic Workflows**: Technical Preview execution engine bug in ES 9.x. All workflow functionality migrated to MCP tools.
+- **Kibana `.mcp` Connector Auth**: Does not forward `Authorization` headers to MCP servers. Mitigated with Cloud Run IAM.
 
 ---
 
 ## Future Work
 
-- **Multi-tenant support** — Isolate memories per team or organization
-- **Custom grade thresholds** — Allow teams to define their own A/B/C/D criteria
-- **Incident management integration** — Auto-import from PagerDuty, OpsGenie, Jira
-- **Feedback loops** — Track whether Trust Gate corrections were helpful
-- **Memory decay** — Automatically reduce confidence of aging memories
+- **Multi-tenant support**: Isolate memories per team or organization
+- **Custom grade thresholds**: Allow teams to define their own A/B/C/D criteria
+- **Incident management integration**: Auto-import from PagerDuty, OpsGenie, Jira
+- **Feedback loops**: Track whether Trust Gate corrections were helpful
+- **Memory decay**: Automatically reduce confidence of aging memories
 
 ---
 
@@ -352,6 +352,6 @@ MIT License. See [LICENSE](LICENSE) for details.
 ---
 
 <p align="center">
-  <b>Hippocampus</b> — Because AI agents should know what they don't know.<br>
+  <b>Hippocampus</b>: AI agents should know what they don't know.<br>
   Built with <a href="https://www.elastic.co/elasticsearch">Elasticsearch</a> Agent Builder
 </p>
