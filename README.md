@@ -1,10 +1,16 @@
-# Hippocampus: AI Agent Guardrails
+<p align="center">
+  <img src="assets/logo.svg" alt="Hippocampus Logo" width="540">
+</p>
+
+<p align="center">
 
 [![Elasticsearch](https://img.shields.io/badge/Elasticsearch-9.x-005571?logo=elasticsearch&logoColor=white)](https://www.elastic.co/elasticsearch)
 [![Kibana](https://img.shields.io/badge/Kibana-9.x-005571?logo=kibana&logoColor=white)](https://www.elastic.co/kibana)
 [![ELSER](https://img.shields.io/badge/ELSER-v2-00BFB3)](https://www.elastic.co/guide/en/machine-learning/current/ml-nlp-elser.html)
 [![Agent Builder](https://img.shields.io/badge/Agent_Builder-Hackathon-F04E98)](https://elasticsearch.devpost.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+</p>
 
 > **What if your AI agent could say "I don't know" instead of confidently being wrong? Hippocampus checks organizational memory in Elasticsearch before every answer.**
 
